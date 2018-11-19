@@ -28,7 +28,6 @@ class KefSpeaker():
         self.__connection = None
         self.__connected = False
         self.__online = False
-        self.__input_source = None
         self.__last_timestamp = 0
         self.__host = host
         self.__port = port
@@ -92,7 +91,7 @@ class KefSpeaker():
 
     def __disconnect_if_passive(self):
         """Disconnect if connection is not used for a while (old timestamp)."""
-        if time() - self.__last_timestamp > _CONNECTION_KEEP_ALIVE and self.__connected:
+        if self.__connected and time() - self.__last_timestamp > _CONNECTION_KEEP_ALIVE:
             self.__connected = False
             self.__connection.close()
             _LOGGER.debug("Disconneced")
@@ -125,7 +124,7 @@ class KefSpeaker():
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def __getSource(self):
-        # TODO: figure out how to fetch the input source from the speaker
+        _LOGGER.debug("__getSource")
         msg = bytes([0x47, 0x30, 0x80, 0xd9])
         table = {
             18: InputSource.WIFI,
@@ -138,6 +137,7 @@ class KefSpeaker():
         return table.get(response) if response else None
 
     def __setSource(self, source):
+        _LOGGER.debug("__setSource: " + "source:" + str(source))
         return self.__sendCommand(source.value) == _RESPONSE_OK
 
 
@@ -170,7 +170,7 @@ class KefSpeaker():
 
     @muted.setter
     def muted(self, value):
-        self.__setVolume(None) if value else self.__setVolume(int(self.__getVolume()) % 128)
+        self.__setVolume(None if value else (int(self.__getVolume()) % 128))
 
     @property
     def online(self):
@@ -181,14 +181,14 @@ class KefSpeaker():
         self.__sendCommand(msg)
 
     def increaseVolume(self, step = None):
-        """Increase volume by step, or 5% by default. Constrait: 0.0 < step 1.0."""
+        """Increase volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
         volume = self.__getVolume()
         if volume:
             step = step if step else _VOL_STEP
             self.__setVolume(volume + step * _SCALE)
 
     def decreaseVolume(self, step = None):
-        """Decrease volume by step, or 5% by default. Constrait: 0.0 < step 1.0."""
+        """Decrease volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
         self.increaseVolume(-(step or _VOL_STEP))
 
 
