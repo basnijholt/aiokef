@@ -1,15 +1,19 @@
 #! /usr/bin/env python
-"""The main service script for pykef"""
+"""pykef is the main script for interfacing with kef speakers"""
 
 from enum import Enum
 import socket
 import logging
+import datetime
+from time import sleep, time
+from threading import Thread
 
 _LOGGER = logging.getLogger(__name__)
-_VOL_STEP = 5.0 / 128.0
-_TURN_OFF_CMD = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
+_VOL_STEP = 0.05
 _RESPONSE_OK = 17
-_TIMEOUT = 5
+_TIMEOUT = 3.0  # in secs
+_CONNECTION_KEEP_ALIVE = 1.0  # in secs
+
 
 class InputSource(Enum):
     WIFI = bytes([0x53, 0x30, 0x81, 0x12, 0x82])
@@ -18,164 +22,238 @@ class InputSource(Enum):
     OPT = bytes([0x53, 0x30, 0x81, 0x1b, 0x00])
     USB = bytes([0x53, 0x30, 0x81, 0x1c, 0xf7])
 
-class KefServiceException(Exception):
-    pass
-
-class KefService():
-    def __init__(self):
+class KefSpeaker():
+    def __init__(self, host, port):
         self.__connection = None
-        self.__host = None
-        self.__port = None
-        self.__volume = 0
+        self.__connected = False
+        self.__online = False
         self.__input_source = None
-        try:
-            self.__connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except Exception as err:
-            print(err)
-
-    def connect(self, host, port, on_connect = None, on_disconnect = None):
+        self.__last_timestamp = 0
         self.__host = host
         self.__port = port
-        self.__connection.settimeout(_TIMEOUT)
-        try:
-            self.__connection.connect((self.__host, self.__port))
-        except Exception as err:
-            msg = 'Unable to connect to kef speaker at {}. Is it offline?'.format(host)
-            raise KefServiceException(msg) from err
-        if self.isConnected():
-            self.__volume = self._getVolume()
+        self.__update_thread = Thread(target=self.__update, daemon=True)
+        self.__update_thread.start()
 
-    def turnOff(self):
-        msg = bytes(_TURN_OFF_CMD)
-        self._sendCommand(msg)
+    def __refresh_connection(self):
+        """Connect if not connected.
 
-    def isConnected(self):
-        return self.__connection is not None
+        Retry at max for 100 times, with longer interval each time.
+        Update timestamp that keep connection alive.
+
+        If unable to connect due to no route to host, set to offline
+
+        If speaker is offline, max retires is infinite.
+
+        """
+        self.__last_timestamp = time()
+        if not self.__connected:
+            def setup_connection():
+                self.__connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.__connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.__connection.settimeout(_TIMEOUT)
+                return self.__connection
+
+            self.__connection = setup_connection()
+            self.__connected = False
+            wait = 0.1
+            retries = 0
+            while retries < 100:
+                self.__last_timestamp = time()
+                try:
+                    self.__connection.connect((self.__host, self.__port))
+                    self.__connected = True
+                    self.__online = True
+                    _LOGGER.debug("Online")
+                    _LOGGER.debug("Connected")
+                    break
+                except ConnectionRefusedError:
+                    self.__connection = setup_connection()
+                    wait += 0.1
+                    sleep(wait)
+                except BlockingIOError: # Connection ingoing
+                    retries = 0
+                    wait = _TIMEOUT
+                    sleep(wait)
+                except OSError: # Host is down
+                    self.__online = False
+                    _LOGGER.debug("Offline")
+                    retries = 0
+                    wait = _TIMEOUT
+                    sleep(wait)
+                    self.__connection = setup_connection()
+                except socket.timeout: # Host went offline (probably)
+                    self.__online = False
+                    _LOGGER.debug("Offline")
+                    retries = 0
+                    wait = _TIMEOUT
+                    sleep(wait)
+                retries += 1
+
+    def __disconnect_if_passive(self):
+        """Disconnect if connection is not used for a while (old timestamp)."""
+        if time() - self.__last_timestamp > _CONNECTION_KEEP_ALIVE and self.__connected:
+            self.__connected = False
+            self.__connection.close()
+            _LOGGER.debug("Disconneced")
+
+    def __update(self):
+        """Thread running in the background, disconnects speakers when passive."""
+        while 1:
+            sleep(0.1)
+            self.__disconnect_if_passive()
+
+    def __sendCommand(self, message):
+        """Send command to speakers, returns the response."""
+        self.__refresh_connection()
+        if self.__connected:
+            self.__connection.sendall(message)
+            data = self.__connection.recv(1024)
+        else:
+            data = None
+        return data[len(data) - 2] if data else None
+
+    def __getVolume(self):
+        _LOGGER.debug("__getVolume")
+        msg = bytes([0x47, 0x25, 0x80, 0x6c])
+        return self.__sendCommand(msg)
+
+    def __setVolume(self, volume):
+        _LOGGER.debug("__setVolume: " + "volume:" + str(volume))
+        # write vol level in 4th place , add 128 to current level to mute
+        msg = bytes([0x53, 0x25, 0x81, volume, 0x1a])
+        return self.__sendCommand(msg) == _RESPONSE_OK
+
+    def __getSource(self):
+        # TODO: figure out how to fetch the input source from the speaker
+        msg = bytes([0x47, 0x30, 0x80, 0xd9])
+        table = {
+            18: InputSource.WIFI,
+            25: InputSource.BLUETOOTH,
+            26: InputSource.AUX,
+            27: InputSource.OPT,
+            28: InputSource.USB
+        }
+        response = self.__sendCommand(msg)
+        return table.get(response) if response else None
+
+    def __setSource(self, source):
+        return self.__sendCommand(source.value) == _RESPONSE_OK
+
 
     @property
     def volume(self):
         """Volume level of the media player (0..1). None if muted"""
-        return self.__volume / 128.0 if self.__volume < 128 else None
+        volume = self.__getVolume()
+        return volume / 100.0 if volume < 128 else None
 
     @volume.setter
     def volume(self, value):
         if value:
-            volume = int(max(0.0,min(1.0, value)) * 128.0)
+            volume = int(max(0.0, min(1.0, value)) * 100.0)
         else:
-            volume = int(self.__volume) % 128 + 128
-        self._setVolume(volume)
+            current_volume = None
+            while not current_volume:
+                current_volume = self.__getVolume()
+            volume = int(current_volume) % 128 + 128
+        self.__setVolume(volume)
 
     @property
     def source(self):
         """Get the input source of the speaker."""
-        return self.__input_source
+        return self.__getSource()
 
     @source.setter
     def source(self, value):
-        self._setSource(value)
+        self.__setSource(value)
 
     @property
     def muted(self):
-        return self.__volume > 128
+        return self.__getVolume() > 128
+
+    @property
+    def online(self):
+        return self.__online
+
+    def turnOff(self):
+        msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
+        self.__sendCommand(msg)
 
     def increaseVolume(self):
-        self._getVolume()
         if not self.muted:
             self.volume += _VOL_STEP
         return self.volume
 
     def decreaseVolume(self):
-        self._getVolume()
         if not self.muted:
             self.volume -= _VOL_STEP
         return self.volume
-
-    def _getVolume(self):
-        _LOGGER.debug("_getVolume" )
-        MESSAGE = bytes([0x47, 0x25, 0x80, 0x6c])
-        self.__volume = self._sendCommand(MESSAGE)
-        return self.__volume
-
-    def _setVolume(self, volume):
-        _LOGGER.debug("_setVolume: " + "volume:" + str(volume))
-        ## write vol level in 4th place , add 128 to current level to mute
-        MESSAGE = bytes([0x53, 0x25, 0x81, volume, 0x1a])
-        response = self._sendCommand(MESSAGE)
-        if response == _RESPONSE_OK:
-            self.__volume = volume
-        return self.__volume
-
-    def _setSource(self, source):
-        reponse = self._sendCommand(source.value)
-        if reponse == _RESPONSE_OK:
-            self.__input_source = source
-        return self.__input_source
-
-    def _getSource(self):
-        # TODO: figure out how to fetch the input source from the speaker
-        return self.__input_source or InputSource.WIFI
 
     def mute(self):
         self.volume = None
 
     def unmute(self):
-        self._setVolume(int(self._getVolume()) % 128)
-
-    def _sendCommand (self,message):
-        if self.isConnected() == False:
-            _LOGGER.warning("LS50 not connected ")
-            return None
-        connection = self.__connection
-        connection.sendall(message)
-        data = connection.recv(1024)
-        return self._parseResponse(data);
-
-    def _parseResponse(self, message):
-        return message[len(message) - 2]
+        self.__setVolume(int(self.__getVolume()) % 128)
 
 
 def mainTest2():
     host = '192.168.1.200'
     port = 50001
-    service = KefService()
-    service.connect(host, port)
-    print ("isConnected:" + str(service.isConnected()))
+    service = KefSpeaker(host, port)
+    print("isOnline:" + str(service.online))
     service.turnOff()
+
 
 def mainTest1():
     host = '192.168.1.200'
     port = 50001
-    service = KefService()
-    service.connect(host, port)
-    print ("isConnected:" + str(service.isConnected()))
-    print(service.source)
-    service.source = InputSource.USB
-    print(service.source)
-    service.volume = 0.5
-    print(service.volume)
-    print(service._getVolume())
-    #print ("vol:" + str(service.increaseVolume()))
-    service.volume = None
-    #print("getvol: ", service._getVolume())
-    service.unmute()
-    print("getvol: ", service._getVolume())
-    #print(service._setVolume(80))
-    print("getvol: ", service._getVolume())
-    print("vol: ", service.volume)
-    print("getvol: ", service._getVolume())
-    print ("vol up:" + str(service.increaseVolume()))
-    print("getvol: ", service._getVolume())
-    print("vol: ", service.volume)
-    print ("vol up:" + str(service.increaseVolume()))
-    print ("vol up:" + str(service.increaseVolume()))
-    service.volume = None
-    print ("vol up:" + str(service.increaseVolume()))
-    service.unmute()
-    print("vol: ", service.volume)
-    print ("vol down:" + str(service.decreaseVolume()))
-    print ("vol down:" + str(service.decreaseVolume()))
-    print ("vol down:" + str(service.decreaseVolume()))
-    print ("vol down:" + str(service.decreaseVolume()))
+    speaker = KefSpeaker(host, port)
+    #print(speaker.__setSource(InputSource.OPT))
+    #print(speaker.__getSource())
+
+    # TIMER = 0.1
+    # sleep(TIMER)
+    # speaker.connect(host, port)
+    # sleep(TIMER)
+    # print(speaker.volume)
+    # sleep(TIMER)
+    # print(speaker.volume)
+    # sleep(TIMER)
+    # print(speaker.volume)
+    # sleep(TIMER)
+    # sleep(TIMER)
+    # print(speaker.volume)
+    # sleep(TIMER)
+    speaker.source = InputSource.USB
+    print("isOnline:" + str(speaker.online))
+    print(speaker.source)
+    speaker.volume = 0.5
+    print(speaker.volume)
+    #print ("vol:" + str(speaker.increaseVolume()))
+    speaker.volume = None
+    #print("getvol: ", speaker.__getVolume())
+    speaker.unmute()
+    print("getvol: ", speaker.volume)
+    speaker.volume = 0.6
+    print("getvol: ", speaker.volume)
+    print("vol: ", speaker.volume)
+    print("getvol: ", speaker.volume)
+    print("vol up:" + str(speaker.increaseVolume()))
+    print("getvol: ", speaker.volume)
+    print("vol: ", speaker.volume)
+    print("vol up:" + str(speaker.increaseVolume()))
+    print("vol up:" + str(speaker.increaseVolume()))
+    speaker.volume = None
+    print("vol up:" + str(speaker.increaseVolume()))
+    speaker.unmute()
+    print("vol: ", speaker.volume)
+    print("vol down:" + str(speaker.decreaseVolume()))
+    print("vol down:" + str(speaker.decreaseVolume()))
+    print("vol down:" + str(speaker.decreaseVolume()))
+    print("vol down:" + str(speaker.decreaseVolume()))
+
+    while 1:
+        sleep(3)
+        print(speaker.source)
 
 
 if __name__ == '__main__':
