@@ -9,10 +9,11 @@ from time import sleep, time
 from threading import Thread
 
 _LOGGER = logging.getLogger(__name__)
-_VOL_STEP = 0.05
+_VOL_STEP = 0.05 # 5 percent
 _RESPONSE_OK = 17
 _TIMEOUT = 3.0  # in secs
 _CONNECTION_KEEP_ALIVE = 1.0  # in secs
+_SCALE = 100.0
 
 
 class InputSource(Enum):
@@ -120,7 +121,7 @@ class KefSpeaker():
     def __setVolume(self, volume):
         _LOGGER.debug("__setVolume: " + "volume:" + str(volume))
         # write vol level in 4th place , add 128 to current level to mute
-        msg = bytes([0x53, 0x25, 0x81, volume, 0x1a])
+        msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1a])
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def __getSource(self):
@@ -144,17 +145,14 @@ class KefSpeaker():
     def volume(self):
         """Volume level of the media player (0..1). None if muted"""
         volume = self.__getVolume()
-        return volume / 100.0 if volume < 128 else None
+        return volume / _SCALE if volume < 128 else None
 
     @volume.setter
     def volume(self, value):
         if value:
-            volume = int(max(0.0, min(1.0, value)) * 100.0)
+            volume = int(max(0.0, min(1.0, value)) * _SCALE)
         else:
-            current_volume = None
-            while not current_volume:
-                current_volume = self.__getVolume()
-            volume = int(current_volume) % 128 + 128
+            volume = int(self.__getVolume()) % 128 + 128
         self.__setVolume(volume)
 
     @property
@@ -170,6 +168,10 @@ class KefSpeaker():
     def muted(self):
         return self.__getVolume() > 128
 
+    @muted.setter
+    def muted(self, value):
+        self.__setVolume(None) if value else self.__setVolume(int(self.__getVolume()) % 128)
+
     @property
     def online(self):
         return self.__online
@@ -178,21 +180,16 @@ class KefSpeaker():
         msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
         self.__sendCommand(msg)
 
-    def increaseVolume(self):
-        if not self.muted:
-            self.volume += _VOL_STEP
-        return self.volume
+    def increaseVolume(self, step = None):
+        """Increase volume by step, or 5% by default. Constrait: 0.0 < step 1.0."""
+        volume = self.__getVolume()
+        if volume:
+            step = step if step else _VOL_STEP
+            self.__setVolume(volume + step * _SCALE)
 
-    def decreaseVolume(self):
-        if not self.muted:
-            self.volume -= _VOL_STEP
-        return self.volume
-
-    def mute(self):
-        self.volume = None
-
-    def unmute(self):
-        self.__setVolume(int(self.__getVolume()) % 128)
+    def decreaseVolume(self, step = None):
+        """Decrease volume by step, or 5% by default. Constrait: 0.0 < step 1.0."""
+        self.increaseVolume(-(step or _VOL_STEP))
 
 
 def mainTest2():
@@ -231,7 +228,7 @@ def mainTest1():
     #print ("vol:" + str(speaker.increaseVolume()))
     speaker.volume = None
     #print("getvol: ", speaker.__getVolume())
-    speaker.unmute()
+    speaker.muted = False
     print("getvol: ", speaker.volume)
     speaker.volume = 0.6
     print("getvol: ", speaker.volume)
@@ -240,16 +237,21 @@ def mainTest1():
     print("vol up:" + str(speaker.increaseVolume()))
     print("getvol: ", speaker.volume)
     print("vol: ", speaker.volume)
-    print("vol up:" + str(speaker.increaseVolume()))
-    print("vol up:" + str(speaker.increaseVolume()))
+    speaker.increaseVolume()
+    print("vol up:" + str(speaker.volume))
+    speaker.increaseVolume()
+    print("vol up:" + str(speaker.volume))
     speaker.volume = None
-    print("vol up:" + str(speaker.increaseVolume()))
-    speaker.unmute()
+    speaker.increaseVolume()
+    print("vol up:" + str(speaker.volume))
+    speaker.muted = False
     print("vol: ", speaker.volume)
-    print("vol down:" + str(speaker.decreaseVolume()))
-    print("vol down:" + str(speaker.decreaseVolume()))
-    print("vol down:" + str(speaker.decreaseVolume()))
-    print("vol down:" + str(speaker.decreaseVolume()))
+    speaker.decreaseVolume()
+    print("vol down:" + str(speaker.volume))
+    speaker.decreaseVolume()
+    print("vol down:" + str(speaker.volume))
+    speaker.decreaseVolume()
+    print("vol down:" + str(speaker.volume))
 
     while 1:
         sleep(3)

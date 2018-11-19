@@ -9,6 +9,54 @@ Untested: KEF LSX
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
 
+## Examples
+Setup:
+```python
+host = '192.168.1.200'
+port = 50001
+speaker = KefSpeaker(host, port)
+```
+Set volume:
+```python
+speaker.volume = 0.5 # %50 vol
+```
+Get volume:
+```python
+volume = speaker.volume
+```
+Set source:
+```python
+speaker.source = InputSource.AUX
+```
+Get source:
+```python
+source = speaker.source
+```
+Mute:
+```python
+speaker.volume = None
+# Or
+speaker.muted = True
+```
+Unmute (set to volume before mute):
+```python
+speaker.muted = False
+```
+Step volume up
+```python
+speaker.increseVolume() # 5% increase
+speaker.increseVolume(0.10) # 10% increase
+```
+Step volume down
+```python
+speaker.decreaseVolume() # 5% increase
+speaker.decreaseVolume(0.10) # 10% increase
+```
+Turn off
+```python
+speaker.turnOff()
+```
+
 ## License
 MIT License
 
