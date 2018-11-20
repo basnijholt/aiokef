@@ -9,6 +9,14 @@ Untested: KEF LSX
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
 
+## Install
+```bash
+pip install pykef
+```
+
+## Discussion
+See home assistant thread: https://community.home-assistant.io/t/kef-ls50-wireless/
+
 ## Examples
 Setup:
 ```python
@@ -68,7 +76,7 @@ python3 -m pip install --user --upgrade setuptools wheel
 ```bash
 python3 setup.py sdist bdist_wheel
 ```
-3. Upload
+3. Upload (test)
 ```bash
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
