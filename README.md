@@ -57,6 +57,22 @@ Turn off
 speaker.turnOff()
 ```
 
+## How to
+
+### Upload new release:
+1. Update needed tools:
+```bash
+python3 -m pip install --user --upgrade setuptools wheel
+```
+2. Build
+```bash
+python3 setup.py sdist bdist_wheel
+```
+3. Upload
+```bash
+twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+```
+
 ## License
 MIT License
 
