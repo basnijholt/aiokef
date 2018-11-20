@@ -1,13 +1,18 @@
 # Python interface to control KEF speakers
-Supported: KEF LS50 Wireless
+Supported: KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
 
 Untested: KEF LSX
 
 ## Features supported
 - Get and set volume
+- Mute and Unmute
 - Get and set source input
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
+- Turn off speaker
+
+## Features unfortunatly unsupported
+- Turn on is impossible over tcp/ip because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
 
 ## Install
 ```bash
@@ -15,7 +20,7 @@ pip install pykef
 ```
 
 ## Discussion
-See home assistant thread: https://community.home-assistant.io/t/kef-ls50-wireless/
+See [home assistant thread](https://community.home-assistant.io/t/kef-ls50-wireless/)
 
 ## Examples
 Setup:
