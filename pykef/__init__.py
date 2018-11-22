@@ -244,7 +244,7 @@ class KefSpeaker():
         volume = self.__getVolume()
         if volume:
             step = step if step else _VOL_STEP
-            return self.__setVolume(volume + step * _SCALE)
+            return self.__setVolume(min(max(volume + step * _SCALE, 0.0), 1.0))
 
 
     def decreaseVolume(self, step = None):
