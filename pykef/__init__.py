@@ -124,15 +124,19 @@ class KefSpeaker():
         self.__refresh_connection()
         if self.__connected:
             self.__semaphore.acquire()
-            self.__connection.sendall(message)
-            self.__connection.setblocking(0)
-            ready = select.select([self.__connection], [], [], _TIMEOUT)
-            if ready[0]:
-                data = self.__connection.recv(1024)
-            else:
-                data = None
-            self.__connection.setblocking(1)
-            self.__semaphore.release()
+            try:
+                self.__connection.sendall(message)
+                self.__connection.setblocking(0)
+                ready = select.select([self.__connection], [], [], _TIMEOUT)
+                if ready[0]:
+                    data = self.__connection.recv(1024)
+                else:
+                    data = None
+                self.__connection.setblocking(1)
+            except Exception as err:
+                raise OSError('__sendCommand failed') from err
+            finally:
+                self.__semaphore.release()
         else:
             raise OSError('__sendCommand failed')
         return data[len(data) - 2] if data else None
