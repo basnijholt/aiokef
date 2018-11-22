@@ -170,7 +170,7 @@ class KefWireless(MediaPlayerDevice):
         try:
             self._speaker.increaseVolume()
             self._volume = self._speaker.volume
-            self._update_timeout = time.time()
+            self._update_timeout = time.time() + UPDATE_TIMEOUT
         except Exception :
             _LOGGER.warning("increaseVolume: failed" );
 
