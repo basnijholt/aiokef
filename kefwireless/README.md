@@ -10,6 +10,7 @@ Untested: KEF LSX
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
 - Turn off speaker
+- Turn on speaker (via HA service call)
 
 ## Features unfortunatly unsupported
 - Turn on is impossible over tcp/ip because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
@@ -104,7 +105,8 @@ media_player:
    - platform: kefwireless
      host: 192.168.x.x # change to the IP of you speaker, no autodetection yet
      name: MyLS50W # optional, the name you want to see in Home Assistant 
-
+     turn_on_service: switch.turn_on # optional, place a HA service to call in here: domain.service 
+     turn_on_service_data: '{"entity_id": "switch.some_switch"}' # optional, place the service data in here. Must be in quotation marks ('). Must be one line   
 ```
 
 
