@@ -5,7 +5,7 @@ import setuptools, pykef, shutil
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-shutil.rmtree("dist")
+shutil.rmtree("dist", ignore_errors=True)
 
 setuptools.setup(
     name='pykef',
