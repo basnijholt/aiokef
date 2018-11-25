@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 _VOL_STEP = 0.05  # 5 percent
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in secs
-_CONNECTION_KEEP_ALIVE = 1.0  # in secs
+_KEEP_ALIVE = 1.0  # in secs
 _SCALE = 100.0
 _RETRIES = 10
 
@@ -36,14 +36,14 @@ class InputSource(Enum):
 
     @classmethod
     def from_str(cls, name):
-        matches = [source for source in InputSource if str(source).endswith(name)]
+        matches = [s for s in InputSource if str(s).endswith(name)]
         return matches[0] if matches else None
 
 
 class KefSpeaker():
     def __init__(self, host, port):
         self.__semaphore = Semaphore()
-        self.__connection = None
+        self.__socket = None
         self.__connected = False
         self.__online = False
         self.__last_timestamp = 0
@@ -63,29 +63,29 @@ class KefSpeaker():
         If speaker is offline, max retires is infinite.
 
         """
+        def setup_connection():
+            self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.__socket.settimeout(_TIMEOUT)
+            return self.__socket
         self.__last_timestamp = time()
-        if not self.__connected:
-            def setup_connection():
-                self.__connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.__connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                self.__connection.settimeout(_TIMEOUT)
-                return self.__connection
 
-            self.__connection = setup_connection()
+        if not self.__connected:
+            self.__socket = setup_connection()
             self.__connected = False
             wait = 0.1
             retries = 0
             while retries < _RETRIES:
                 self.__last_timestamp = time()
                 try:
-                    self.__connection.connect((self.__host, self.__port))
+                    self.__socket.connect((self.__host, self.__port))
                     self.__connected = True
                     self.__online = True
                     _LOGGER.debug("Online")
                     _LOGGER.debug("Connected")
                     break
                 except ConnectionRefusedError:
-                    self.__connection = setup_connection()
+                    self.__socket = setup_connection()
                     wait += 0.1
                     sleep(wait)
                 except BlockingIOError:  # Connection ingoing
@@ -104,13 +104,14 @@ class KefSpeaker():
 
     def __disconnect_if_passive(self):
         """Disconnect if connection is not used for a while (old timestamp)."""
-        if self.__connected and time() - self.__last_timestamp > _CONNECTION_KEEP_ALIVE:
+        should_disconnect = time() - self.__last_timestamp > _KEEP_ALIVE
+        if self.__connected and should_disconnect:
             self.__connected = False
-            self.__connection.close()
+            self.__socket.close()
             _LOGGER.debug("Disconneced")
 
     def __update(self):
-        """Thread running in the background, disconnects speakers when passive."""
+        """Update speakers, disconnects speakers when passive."""
         while 1:
             sleep(0.1)
             self.__disconnect_if_passive()
@@ -121,14 +122,14 @@ class KefSpeaker():
         if self.__connected:
             self.__semaphore.acquire()
             try:
-                self.__connection.sendall(message)
-                self.__connection.setblocking(0)
-                ready = select.select([self.__connection], [], [], _TIMEOUT)
+                self.__socket.sendall(message)
+                self.__socket.setblocking(0)
+                ready = select.select([self.__socket], [], [], _TIMEOUT)
                 if ready[0]:
-                    data = self.__connection.recv(1024)
+                    data = self.__socket.recv(1024)
                 else:
                     data = None
-                self.__connection.setblocking(1)
+                self.__socket.setblocking(1)
             except Exception as err:
                 raise OSError('__sendCommand failed') from err
             finally:
@@ -221,15 +222,20 @@ class KefSpeaker():
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def increaseVolume(self, step=None):
-        """Increase volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
+        """Increase volume by step, or 5% by default.
 
+        Constrait: 0.0 < step < 1.0.
+        """
         volume = self.volume
         if volume:
             step = step if step else _VOL_STEP
             self.volume = volume + step
 
     def decreaseVolume(self, step=None):
-        """Decrease volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
+        """Decrease volume by step, or 5% by default.
+
+        Constrait: 0.0 < step < 1.0.
+        """
         self.increaseVolume(-(step or _VOL_STEP))
 
 
