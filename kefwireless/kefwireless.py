@@ -15,7 +15,7 @@ import json
 from homeassistant.components.media_player import (
     PLATFORM_SCHEMA, SUPPORT_SELECT_SOURCE, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_SET,SUPPORT_TURN_ON,
     SUPPORT_VOLUME_STEP,SUPPORT_TURN_OFF, MediaPlayerDevice)
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF , STATE_ON
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON, STATE_STANDBY
 from homeassistant.helpers import config_validation as cv
 from custom_components.media_player.pykef import KefSpeaker, InputSource
 
@@ -45,7 +45,7 @@ KEF_LS50_SOURCE_DICT = collections.OrderedDict([
 #supported features
 SUPPORT_KEFWIRELESS = SUPPORT_VOLUME_SET | SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_SELECT_SOURCE | SUPPORT_TURN_OFF
 CONF_TURN_ON_SERVICE = 'turn_on_service'
-CONF_TURN_ON_SERVICE_DATA = 'turn_on_service_data'
+CONF_TURN_ON_DATA = 'turn_on_data'
 
 #yaml configuration
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -53,7 +53,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port ,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_TURN_ON_SERVICE): cv.service,
-    vol.Optional(CONF_TURN_ON_SERVICE_DATA): cv.string,
+    vol.Optional(CONF_TURN_ON_DATA): cv.string,
 })
 
 
@@ -65,7 +65,7 @@ def setup_platform(hass, config, add_devices,
     port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
     turn_on_service = config.get(CONF_TURN_ON_SERVICE)
-    turn_on_service_data = config.get(CONF_TURN_ON_SERVICE_DATA)
+    turn_on_service_data = config.get(CONF_TURN_ON_DATA)
 
     _LOGGER.debug("Setting up " + DATA_KEFWIRELESS + " + using " + "host:" + str(host)+ ", port:" + str(port)+ ", name:" + str(name))
     _LOGGER.debug(
@@ -171,9 +171,10 @@ class KefWireless(MediaPlayerDevice):
     def turn_off(self):
         """Turn the media player off."""
         try:
-            self._speaker.turnOff()
-            self._state = STATE_OFF
-            self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
+            response = self._speaker.turnOff()
+            if response:
+                self._state = STATE_OFF
+                self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
         except Exception :
             _LOGGER.warning("turn_off: failed" );
 
@@ -181,8 +182,11 @@ class KefWireless(MediaPlayerDevice):
     def turn_on(self):
         """Turn the media player on via service call."""
 
-        ## even if the SUPPORT_TURN_ON is not set as supported feature, HA still offers to call turn_on, thus we have to exit here to prevent errors
-        if self._turn_on_service is None or self._turn_on_service_data is None:
+        # even if the SUPPORT_TURN_ON is not set as supported feature, HA still offers to call
+        # turn_on, thus we have to exit here to prevent errors
+        if (not self._turn_on_service or
+            not self._turn_on_service_data or
+            self._state is not STATE_OFF):
             return
 
         # note that turn_on_service has the correct syntax as we validated the input
@@ -190,10 +194,15 @@ class KefWireless(MediaPlayerDevice):
         service_name = self._turn_on_service.split(".")[1]
 
         # this might need some more work. The self._hass.services.call expects a python dict
-        # this input is specified as a string. I was not able to use config validation to make sure it is a dict
+        # this input is specified as a string. I was not able to use config validation to make sure
+        # it is a dict
         service_data = json.loads(self._turn_on_service_data)
-
         self._hass.services.call(service_domain, service_name,service_data, False)
+
+        # Set to standby while the speaker is turning on.
+        # Using standby rather than STATE_ON in case the speaker failed to turn on.
+        self._state = STATE_STANDBY
+        self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
 
 
     def volume_up(self):

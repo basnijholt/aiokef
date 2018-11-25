@@ -14,7 +14,7 @@ Untested: KEF LSX
 
 ## Features unfortunatly unsupported
 - Turn on is impossible over tcp/ip because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
-- LS50 speakers take about 20 secongs to boot. Thus, after turning them on please be patient. 
+- LS50 speakers take about 20 secongs to boot. Thus, after turning them on please be patient.
 
 
 ## Install
@@ -94,7 +94,7 @@ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```bash
 mkdir custom_components/media_player
 ```
-2. Copy pykef.py and kefwireless.py into that folder. This will make the custom component kefwireless available to Home Assistant: 
+2. Copy pykef.py and kefwireless.py into that folder. This will make the custom component kefwireless available to Home Assistant:
 ```bash
 cp pykef.py custom_components/media_player
 cp kefwireless.py custom_components/media_player
@@ -104,9 +104,9 @@ cp kefwireless.py custom_components/media_player
 media_player:
    - platform: kefwireless
      host: 192.168.x.x # change to the IP of you speaker, no autodetection yet
-     name: MyLS50W # optional, the name you want to see in Home Assistant 
-     turn_on_service: switch.turn_on # optional, place a HA service to call in here: domain.service 
-     turn_on_service_data: '{"entity_id": "switch.some_switch"}' # optional, place the service data in here. Must be in quotation marks ('). Must be one line   
+     name: MyLS50W # optional, the name you want to see in Home Assistant
+     turn_on_service: switch.turn_on # optional, place a HA service to call in here: domain.service
+     turn_on_data: '{"entity_id": "switch.some_switch"}' # optional, place the service data in here. Must be in quotation marks ('). Must be one line
 ```
 
 
