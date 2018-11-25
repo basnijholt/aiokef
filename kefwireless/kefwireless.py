@@ -13,9 +13,13 @@ import voluptuous as vol
 import json
 from enum import Enum
 from homeassistant.components.media_player import (
-    PLATFORM_SCHEMA, SUPPORT_SELECT_SOURCE, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_SET,
-    SUPPORT_TURN_ON, SUPPORT_VOLUME_STEP, SUPPORT_TURN_OFF, MediaPlayerDevice)
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON, STATE_STANDBY
+    PLATFORM_SCHEMA, SUPPORT_SELECT_SOURCE, SUPPORT_VOLUME_MUTE,
+    SUPPORT_VOLUME_SET, SUPPORT_TURN_ON, SUPPORT_VOLUME_STEP, SUPPORT_TURN_OFF,
+    MediaPlayerDevice
+)
+from homeassistant.const import (
+    CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON, STATE_STANDBY
+)
 from homeassistant.helpers import config_validation as cv
 from custom_components.media_player.pykef import KefSpeaker, InputSource
 
@@ -27,12 +31,15 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_NAME = 'KEFWIRELESS'
 DEFAULT_PORT = 50001
 DATA_KEFWIRELESS = 'kefwireless'
-# If a new source is selected, do not override source in update for this amount of seconds
+# If a new source is selected, do not override source in update for this amount
+#  of seconds
 UPDATE_TIMEOUT = 1.0
-# When turning off/on the speaker, do not query it for CHANGE_STATE_TIMEOUT, since it takes
+# When turning off/on the speaker, do not query it for CHANGE_STATE_TIMEOUT,
+# since it takes
 # some time for it to go offline/onlne
 CHANGE_STATE_TIMEOUT = 30.0
-# If we try to control the speaker while offline, wait for the speaker to come online (in secs)
+# If we try to control the speaker while offline, wait for the speaker to come
+# online (in secs)
 WAIT_FOR_ONLINE_STATE = 10.0
 
 # configure source options to communicate to HA
@@ -45,7 +52,11 @@ KEF_LS50_SOURCE_DICT = collections.OrderedDict([
 ])
 
 # supported features
-SUPPORT_KEFWIRELESS = SUPPORT_VOLUME_SET | SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_SELECT_SOURCE | SUPPORT_TURN_OFF
+SUPPORT_KEFWIRELESS = (
+    SUPPORT_VOLUME_SET | SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE |
+    SUPPORT_SELECT_SOURCE | SUPPORT_TURN_OFF
+)
+
 CONF_TURN_ON_SERVICE = 'turn_on_service'
 CONF_TURN_ON_DATA = 'turn_on_data'
 
@@ -89,7 +100,8 @@ class States(Enum):
 class KefWireless(MediaPlayerDevice):
     """Kef Player Object."""
 
-    def __init__(self, name, host, port, turn_on_service, turn_on_data, source_dict, hass):
+    def __init__(self, name, host, port, turn_on_service, turn_on_data,
+                 source_dict, hass):
         """Initialize the media player."""
         self._hass = hass
         self._name = name
@@ -106,7 +118,7 @@ class KefWireless(MediaPlayerDevice):
         self._update_timeout = time.time() - CHANGE_STATE_TIMEOUT
 
     def __wait_for_online_state(self):
-        """Use this function to wait for online state before controlling the speaker."""
+        """Use this function to wait for online state."""
         time_to_wait = WAIT_FOR_ONLINE_STATE
         while time_to_wait > 0 and self._state is not States.Online:
             time_to_sleep = 0.1
@@ -135,16 +147,15 @@ class KefWireless(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
-        if (self._state in [States.Offline, States.TurningOn, States.TurningOff]):
+        if (self._state in
+                [States.Offline, States.TurningOn, States.TurningOff]):
             return STATE_OFF
         elif self._state is States.Online:
             return STATE_ON
+        return None
 
     def update(self):
-        """update latest state.
-           This function is called from HA in regular intervals
-           Here we query the speaker to update the internal state of this class.
-           """
+        """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
         if self._state in [States.TurningOn, States.TurningOff]:
             if updated_needed:
@@ -152,7 +163,8 @@ class KefWireless(MediaPlayerDevice):
             updated_needed = True
         try:
             isOnline = self._speaker.online
-            if isOnline and self._state in [States.Online, States.Offline, States.TurningOn, None]:
+            if (isOnline and self._state in
+                    [States.Online, States.Offline, States.TurningOn, None]):
                 if updated_needed:
                     self._mute = self._speaker.muted
                     self._source = str(self._speaker.source)
@@ -184,7 +196,8 @@ class KefWireless(MediaPlayerDevice):
         """Flag media player features that are supported.
             Return feature set based on the turn_on_service configuration
         """
-        return (SUPPORT_KEFWIRELESS | (SUPPORT_TURN_ON if self.__is_turning_on_supported() else 0))
+        return (SUPPORT_KEFWIRELESS |
+                (SUPPORT_TURN_ON if self.__is_turning_on_supported() else 0))
 
     def turn_off(self):
         """Turn the media player off."""
@@ -199,21 +212,23 @@ class KefWireless(MediaPlayerDevice):
     def turn_on(self):
         """Turn the media player on via service call."""
 
-        # even if the SUPPORT_TURN_ON is not set as supported feature, HA still offers to call
-        # turn_on, thus we have to exit here to prevent errors
+        # even if the SUPPORT_TURN_ON is not set as supported feature, HA still
+        # offers to call turn_on, thus we have to exit here to prevent errors
         if (not self.__is_turning_on_supported() or
                 self._state in [States.Online, States.TurningOn, None]):
             return
 
-        # note that turn_on_service has the correct syntax as we validated the input
+        # note that turn_on_service has the correct syntax as we validated the
+        # input
         service_domain = self._turn_on_service.split(".")[0]
         service_name = self._turn_on_service.split(".")[1]
 
-        # this might need some more work. The self._hass.services.call expects a python dict
-        # this input is specified as a string. I was not able to use config validation to make sure
-        # it is a dict
+        # this might need some more work. The self._hass.services.call expects
+        # a python dict this input is specified as a string. I was not able to
+        # use config validation to make sure it is a dict
         service_data = json.loads(self._turn_on_data)
-        self._hass.services.call(service_domain, service_name, service_data, False)
+        self._hass.services.call(
+            service_domain, service_name, service_data, False)
         self._state = States.TurningOn
         self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
 
@@ -257,7 +272,7 @@ class KefWireless(MediaPlayerDevice):
                 self._speaker.source = input_source
                 self._update_timeout = time.time() + UPDATE_TIMEOUT
             else:
-                _LOGGER.warning("select_source: unknown input was selected " + str(source))
+                _LOGGER.warning("select_source: unknown input " + str(source))
         except Exception:
             _LOGGER.warning("select_source: failed")
 
