@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-import setuptools, pykef, shutil
+import setuptools
+import pykef
+import shutil
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -9,7 +11,7 @@ shutil.rmtree("dist", ignore_errors=True)
 
 setuptools.setup(
     name='pykef',
-    version='1.1.0',
+    version='1.2.0',
     author='Robin Grönberg',
     author_email='robingronberg@gmail.com',
     description='A python implementation to interface Kef speakers over tcp/ip',
