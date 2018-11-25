@@ -235,21 +235,21 @@ class KefSpeaker():
 
     def turnOff(self):
         msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
-        self.__sendCommand(msg)
+        return self.__sendCommand(msg) == _RESPONSE_OK
 
 
     def increaseVolume(self, step = None):
         """Increase volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
 
-        volume = self.__getVolume()
+        volume = self.volume
         if volume:
             step = step if step else _VOL_STEP
-            return self.__setVolume(min(max(volume + step * _SCALE, 0.0), 1.0))
+            self.volume = volume + step
 
 
     def decreaseVolume(self, step = None):
         """Decrease volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
-        return self.increaseVolume(-(step or _VOL_STEP))
+        self.increaseVolume(-(step or _VOL_STEP))
 
 
 def mainTest1():
