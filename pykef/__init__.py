@@ -10,13 +10,12 @@ from time import sleep, time
 from threading import Thread, Semaphore
 
 _LOGGER = logging.getLogger(__name__)
-_VOL_STEP = 0.05 # 5 percent
+_VOL_STEP = 0.05  # 5 percent
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in secs
 _CONNECTION_KEEP_ALIVE = 1.0  # in secs
 _SCALE = 100.0
 _RETRIES = 10
-
 
 
 class InputSource(Enum):
@@ -40,6 +39,7 @@ class InputSource(Enum):
         matches = [source for source in InputSource if str(source).endswith(name)]
         return matches[0] if matches else None
 
+
 class KefSpeaker():
     def __init__(self, host, port):
         self.__semaphore = Semaphore()
@@ -51,7 +51,6 @@ class KefSpeaker():
         self.__port = port
         self.__update_thread = Thread(target=self.__update, daemon=True)
         self.__update_thread.start()
-
 
     def __refresh_connection(self):
         """Connect if not connected.
@@ -89,20 +88,19 @@ class KefSpeaker():
                     self.__connection = setup_connection()
                     wait += 0.1
                     sleep(wait)
-                except BlockingIOError: # Connection ingoing
+                except BlockingIOError:  # Connection ingoing
                     retries = 0
                     wait = _TIMEOUT
                     sleep(wait)
-                except OSError as err: # Host is down
+                except OSError as err:  # Host is down
                     self.__online = False
                     _LOGGER.debug("Offline")
                     raise ConnectionRefusedError("Speaker is offline") from err
-                except socket.timeout: # Host went offline (probably)
+                except socket.timeout:  # Host went offline (probably)
                     self.__online = False
                     _LOGGER.debug("Offline")
                     raise ConnectionRefusedError("Speaker is offline") from err
                 retries += 1
-
 
     def __disconnect_if_passive(self):
         """Disconnect if connection is not used for a while (old timestamp)."""
@@ -111,13 +109,11 @@ class KefSpeaker():
             self.__connection.close()
             _LOGGER.debug("Disconneced")
 
-
     def __update(self):
         """Thread running in the background, disconnects speakers when passive."""
         while 1:
             sleep(0.1)
             self.__disconnect_if_passive()
-
 
     def __sendCommand(self, message):
         """Send command to speakers, returns the response."""
@@ -141,19 +137,16 @@ class KefSpeaker():
             raise OSError('__sendCommand failed')
         return data[len(data) - 2] if data else None
 
-
     def __getVolume(self):
         _LOGGER.debug("__getVolume")
         msg = bytes([0x47, 0x25, 0x80, 0x6c])
         return self.__sendCommand(msg)
-
 
     def __setVolume(self, volume):
         _LOGGER.debug("__setVolume: " + "volume:" + str(volume))
         # write vol level in 4th place , add 128 to current level to mute
         msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1a])
         return self.__sendCommand(msg) == _RESPONSE_OK
-
 
     def __getSource(self):
         _LOGGER.debug("__getSource")
@@ -170,23 +163,20 @@ class KefSpeaker():
 
         return table.get(response) if response else None
 
-
     def __setSource(self, source):
         _LOGGER.debug("__setSource: " + "source:" + str(source))
         return self.__sendCommand(source.value) == _RESPONSE_OK
-
 
     @property
     def volume(self):
         """Volume level of the media player (0..1). None if muted"""
         volume = self.__getVolume()
 
-        #__getVolume/_sendcommand might return None due too network errors
+        # __getVolume/_sendcommand might return None due too network errors
         if not (volume is None):
             return volume / _SCALE if volume < 128 else None
         else:
-            return None;
-
+            return None
 
     @volume.setter
     def volume(self, value):
@@ -198,23 +188,18 @@ class KefSpeaker():
                 volume = int(current_volume) % 128 + 128
         self.__setVolume(volume)
 
-
     @property
     def source(self):
         """Get the input source of the speaker."""
-
         return self.__getSource()
-
 
     @source.setter
     def source(self, value):
         self.__setSource(value)
 
-
     @property
     def muted(self):
         return self.__getVolume() > 128
-
 
     @muted.setter
     def muted(self, value):
@@ -222,7 +207,6 @@ class KefSpeaker():
         if current_volume is None:
             return
         self.__setVolume(int(current_volume) % 128 + 128 * int(bool(value)))
-
 
     @property
     def online(self):
@@ -232,13 +216,11 @@ class KefSpeaker():
             pass
         return self.__online
 
-
     def turnOff(self):
         msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
         return self.__sendCommand(msg) == _RESPONSE_OK
 
-
-    def increaseVolume(self, step = None):
+    def increaseVolume(self, step=None):
         """Increase volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
 
         volume = self.volume
@@ -246,8 +228,7 @@ class KefSpeaker():
             step = step if step else _VOL_STEP
             self.volume = volume + step
 
-
-    def decreaseVolume(self, step = None):
+    def decreaseVolume(self, step=None):
         """Decrease volume by step, or 5% by default. Constrait: 0.0 < step < 1.0."""
         self.increaseVolume(-(step or _VOL_STEP))
 
@@ -256,8 +237,8 @@ def mainTest1():
     host = '192.168.178.52'
     port = 50001
     speaker = KefSpeaker(host, port)
-    #print(speaker.__setSource(InputSource.Opt))
-    #print(speaker.__getSource())
+    # print(speaker.__setSource(InputSource.Opt))
+    # print(speaker.__getSource())
 
     # TIMER = 0.1
     # sleep(TIMER)
@@ -309,6 +290,7 @@ def mainTest1():
         sleep(3)
         print(speaker.source)
 
+
 def mainTest2():
     host = '192.168.178.52'
     port = 50001
@@ -316,7 +298,8 @@ def mainTest2():
     print("isOnline:" + str(service.online))
     service.source = InputSource.Usb
     service.source = InputSource(("USB",))
-    #service.turnOff()
+    # service.turnOff()
+
 
 def mainTest3():
     host = '192.168.178.52'
@@ -325,10 +308,11 @@ def mainTest3():
 
     while 1:
         sleep(2)
-        print("vol:" +str(speaker.volume))
+        print("vol:" + str(speaker.volume))
         print("mute:" + str(speaker.muted))
         print("source:" + str(speaker.source))
-        print ("online:" + str(speaker.online))
+        print("online:" + str(speaker.online))
+
 
 def mainTest4():
     host = '192.168.178.52'
@@ -337,13 +321,13 @@ def mainTest4():
 
     while 1:
 
-
         speaker.muted = True
-        print ("Is Mutted:" +  str(speaker.muted ))
+        print("Is Mutted:" + str(speaker.muted))
         sleep(5)
         speaker.muted = False
         print("Is Mutted:" + str(speaker.muted))
         sleep(5)
+
 
 def mainTest5():
     host = '192.168.178.52'
@@ -351,19 +335,19 @@ def mainTest5():
     speaker = KefSpeaker(host, port)
 
     while 1:
-        #speaker.increaseVolume(0.1)
-        print ("Volume:" +  str(speaker.volume ))
+        # speaker.increaseVolume(0.1)
+        print("Volume:" + str(speaker.volume))
         sleep(5)
-        #speaker.decreaseVolume(0.1)
+        # speaker.decreaseVolume(0.1)
         print("Volume:" + str(speaker.volume))
         sleep(5)
 
         #speaker.muted = True
         print("Is Mutted:" + str(speaker.muted))
-        #sleep(5)
+        # sleep(5)
         #speaker.muted = False
         #print("Is Mutted:" + str(speaker.muted))
-        #sleep(5)
+        # sleep(5)
 
         sleep(5)
 
