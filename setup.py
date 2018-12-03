@@ -11,7 +11,7 @@ shutil.rmtree("dist", ignore_errors=True)
 
 setuptools.setup(
     name='pykef',
-    version='1.2.0',
+    version='1.3.0',
     author='Robin Grönberg',
     author_email='robingronberg@gmail.com',
     description='A python implementation to interface Kef speakers over tcp/ip',

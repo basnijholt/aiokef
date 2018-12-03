@@ -16,6 +16,12 @@ _TIMEOUT = 1.0  # in secs
 _KEEP_ALIVE = 1.0  # in secs
 _SCALE = 100.0
 _RETRIES = 10
+_WAIT_FOR_ONLINE_STATE = 30.0
+
+
+class Volume(Enum):
+    Mute = "MUTE"
+    Unmute = "UNMUTE"
 
 
 class InputSource(Enum):
@@ -40,15 +46,54 @@ class InputSource(Enum):
         return matches[0] if matches else None
 
 
+class States(Enum):
+    """States for the a KefClientDevice."""
+
+    Online = 1
+    Offline = 2
+    TurningOff = 3
+
+
+class Cache:
+    """Holds some variable and store in cache for some time if set."""
+
+    def __init__(self, initial_value, get_function, cache_timeout=1.0):
+        """ Initialize cache variable holder.
+
+        initial_value: The initial value for the cache varaible
+        cache_timeout: How many secs the cache value should be used before
+        using a real getter.
+
+        """
+        self.__value = initial_value
+        self.__current_timeout = time()
+        self.__cache_timeout = cache_timeout
+        self.__get_function = get_function
+
+    def get(self):
+        if self.__current_timeout - time() < 0:
+            self.__value = self.__get_function()
+        return self.__value
+
+    def set(self, value, update_cache_timeout=True):
+        if update_cache_timeout:
+            self.__current_timeout = time() + self.__cache_timeout
+        self.__value = value
+
+
 class KefSpeaker():
     def __init__(self, host, port):
         self.__semaphore = Semaphore()
         self.__socket = None
         self.__connected = False
-        self.__online = False
         self.__last_timestamp = 0
         self.__host = host
         self.__port = port
+
+        self.__state = Cache(None, self.__getState, _WAIT_FOR_ONLINE_STATE)
+        self.__volume = Cache(None, self.__getVolume)
+        self.__source = Cache(None, self.__getSource)
+
         self.__update_thread = Thread(target=self.__update, daemon=True)
         self.__update_thread.start()
 
@@ -80,7 +125,6 @@ class KefSpeaker():
                 try:
                     self.__socket.connect((self.__host, self.__port))
                     self.__connected = True
-                    self.__online = True
                     _LOGGER.debug("Online")
                     _LOGGER.debug("Connected")
                     break
@@ -93,11 +137,9 @@ class KefSpeaker():
                     wait = _TIMEOUT
                     sleep(wait)
                 except OSError as err:  # Host is down
-                    self.__online = False
                     _LOGGER.debug("Offline")
                     raise ConnectionRefusedError("Speaker is offline") from err
                 except socket.timeout:  # Host went offline (probably)
-                    self.__online = False
                     _LOGGER.debug("Offline")
                     raise ConnectionRefusedError("Speaker is offline") from err
                 retries += 1
@@ -138,15 +180,36 @@ class KefSpeaker():
             raise OSError('__sendCommand failed')
         return data[len(data) - 2] if data else None
 
-    def __getVolume(self):
+    def __wait_for_online_state(self, time_to_wait=_WAIT_FOR_ONLINE_STATE):
+        """Use this function to wait for online state."""
+        while time_to_wait > 0 and self.__state.get() is not States.Online:
+            time_to_sleep = 0.1
+            time_to_wait -= time_to_sleep
+            sleep(time_to_sleep)
+
+    def __getVolume(self, scale=True):
         _LOGGER.debug("__getVolume")
         msg = bytes([0x47, 0x25, 0x80, 0x6c])
-        return self.__sendCommand(msg)
+        volume = self.__sendCommand(msg)
+        if volume:
+            scaled_volume = volume / _SCALE if volume < 128 else Volume.Mute
+            return scaled_volume if scale else volume
+        else:
+            raise ConnectionRefusedError("Cannot fetch volume from speaker")
 
     def __setVolume(self, volume):
         _LOGGER.debug("__setVolume: " + "volume:" + str(volume))
+        if not volume:
+            return
+        if volume not in [Volume.Mute, Volume.Unmute]:
+            set_volume = int(max(0.0, min(1.0, volume)) * _SCALE)
+        else:
+            should_mute = volume is Volume.Mute
+            current_volume = self.__getVolume(scale=False)
+            if current_volume:
+                set_volume = int(current_volume) % 128 + (128 * should_mute)
         # write vol level in 4th place , add 128 to current level to mute
-        msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1a])
+        msg = bytes([0x53, 0x25, 0x81, int(set_volume), 0x1a])
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def __getSource(self):
@@ -168,58 +231,61 @@ class KefSpeaker():
         _LOGGER.debug("__setSource: " + "source:" + str(source))
         return self.__sendCommand(source.value) == _RESPONSE_OK
 
+    def __getState(self):
+        state = States.Online
+        try:
+            self.__refresh_connection()
+        except Exception:
+            state = States.Offline
+        return state
+
     @property
     def volume(self):
         """Volume level of the media player (0..1). None if muted"""
-        volume = self.__getVolume()
-
-        # __getVolume/_sendcommand might return None due too network errors
-        if not (volume is None):
-            return volume / _SCALE if volume < 128 else None
-        else:
-            return None
+        value = self.__volume.get()
+        if value:
+            self.__volume.set(value, update_cache_timeout=False)
+        return value
 
     @volume.setter
     def volume(self, value):
-        if value:
-            volume = int(max(0.0, min(1.0, value)) * _SCALE)
-        else:
-            current_volume = self.__getVolume()
-            if current_volume:
-                volume = int(current_volume) % 128 + 128
-        self.__setVolume(volume)
+        self.__wait_for_online_state()
+        success = self.__setVolume(value)
+        if success and value is not Volume.Unmute:
+            self.__volume.set(value)
 
     @property
     def source(self):
         """Get the input source of the speaker."""
-        return self.__getSource()
+        value = self.__source.get()
+        if value:
+            self.__source.set(value, update_cache_timeout=False)
+        return value
 
     @source.setter
     def source(self, value):
-        self.__setSource(value)
+        self.__wait_for_online_state()
+        success = self.__setSource(value)
+        if success:
+            self.__source.set(value)
 
     @property
     def muted(self):
-        return self.__getVolume() > 128
+        return self.volume is Volume.Mute
 
     @muted.setter
     def muted(self, value):
-        current_volume = self.__getVolume()
-        if current_volume is None:
-            return
-        self.__setVolume(int(current_volume) % 128 + 128 * int(bool(value)))
+        self.volume = Volume.Mute if value else Volume.Unmute
 
     @property
     def online(self):
-        try:
-            self.__refresh_connection()
-        except Exception:
-            pass
-        return self.__online
+        return self.__state.get() is States.Online
 
     def turnOff(self):
         msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
-        return self.__sendCommand(msg) == _RESPONSE_OK
+        success = self.__sendCommand(msg) == _RESPONSE_OK
+        if success:
+            self.__state.set(States.TurningOff)
 
     def increaseVolume(self, step=None):
         """Increase volume by step, or 5% by default.
