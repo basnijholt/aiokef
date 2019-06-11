@@ -1,7 +1,8 @@
 # Python interface to control KEF speakers
-Supported: KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
 
-Untested: KEF LSX
+Supported devices:
+- KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
+- KEF LSX
 
 ## Features supported
 - Get and set volume
@@ -10,9 +11,10 @@ Untested: KEF LSX
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
 - Turn off speaker
+- Turn on (KEF LSX only)
 
 ## Features unfortunatly unsupported
-- Turn on is impossible over tcp/ip because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
+- Turn on is impossible over tcp/ip (KEF LS50 Wireless) because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
 
 Note: One workaround to turning on is to use IR commands to turn on. I have included a [lirc config](lirc/KEF_LS50_WIRELESS.lircd) with all the keys on the remote. Note that each command has to be sent twice to work (at least for me).
 
