@@ -1,5 +1,8 @@
 # Python interface to control KEF speakers
 
+#### Unmaintained
+Since I recently sold of my KEF LS50 Wireless speakers, I will no longer maintain this repository. If you are interested in maintaining this repository, let me know [here](https://github.com/Gronis/pykef/issues/5).
+
 Supported devices:
 - KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
 - KEF LSX
