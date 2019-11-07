@@ -20,10 +20,10 @@ _RETRIES = 10
 
 class InputSource(Enum):
     Wifi = bytes([0x53, 0x30, 0x81, 0x12, 0x82])
-    Bluetooth = bytes([0x53, 0x30, 0x81, 0x19, 0xad])
-    Aux = bytes([0x53, 0x30, 0x81, 0x1a, 0x9b])
-    Opt = bytes([0x53, 0x30, 0x81, 0x1b, 0x00])
-    Usb = bytes([0x53, 0x30, 0x81, 0x1c, 0xf7])
+    Bluetooth = bytes([0x53, 0x30, 0x81, 0x19, 0xAD])
+    Aux = bytes([0x53, 0x30, 0x81, 0x1A, 0x9B])
+    Opt = bytes([0x53, 0x30, 0x81, 0x1B, 0x00])
+    Usb = bytes([0x53, 0x30, 0x81, 0x1C, 0xF7])
 
     def __str__(self):
         return {
@@ -40,7 +40,7 @@ class InputSource(Enum):
         return matches[0] if matches else None
 
 
-class KefSpeaker():
+class KefSpeaker:
     def __init__(self, host, port):
         self.__semaphore = Semaphore()
         self.__socket = None
@@ -63,11 +63,13 @@ class KefSpeaker():
         If speaker is offline, max retires is infinite.
 
         """
+
         def setup_connection():
             self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.__socket.settimeout(_TIMEOUT)
             return self.__socket
+
         self.__last_timestamp = time()
 
         if not self.__connected:
@@ -131,27 +133,27 @@ class KefSpeaker():
                     data = None
                 self.__socket.setblocking(1)
             except Exception as err:
-                raise OSError('__sendCommand failed') from err
+                raise OSError("__sendCommand failed") from err
             finally:
                 self.__semaphore.release()
         else:
-            raise OSError('__sendCommand failed')
+            raise OSError("__sendCommand failed")
         return data[len(data) - 2] if data else None
 
     def __getVolume(self):
         _LOGGER.debug("__getVolume")
-        msg = bytes([0x47, 0x25, 0x80, 0x6c])
+        msg = bytes([0x47, 0x25, 0x80, 0x6C])
         return self.__sendCommand(msg)
 
     def __setVolume(self, volume):
         _LOGGER.debug("__setVolume: " + "volume:" + str(volume))
         # write vol level in 4th place , add 128 to current level to mute
-        msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1a])
+        msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def __getSource(self):
         _LOGGER.debug("__getSource")
-        msg = bytes([0x47, 0x30, 0x80, 0xd9])
+        msg = bytes([0x47, 0x30, 0x80, 0xD9])
         table = {
             18: InputSource.Wifi,
             25: InputSource.Bluetooth,
@@ -218,7 +220,7 @@ class KefSpeaker():
         return self.__online
 
     def turnOff(self):
-        msg = bytes([0x53, 0x30, 0x81, 0x9b, 0x0b])
+        msg = bytes([0x53, 0x30, 0x81, 0x9B, 0x0B])
         return self.__sendCommand(msg) == _RESPONSE_OK
 
     def increaseVolume(self, step=None):
@@ -240,7 +242,7 @@ class KefSpeaker():
 
 
 def mainTest1():
-    host = '192.168.178.52'
+    host = "192.168.178.52"
     port = 50001
     speaker = KefSpeaker(host, port)
     # print(speaker.__setSource(InputSource.Opt))
@@ -264,9 +266,9 @@ def mainTest1():
     print(speaker.source)
     speaker.volume = 0.5
     print(speaker.volume)
-    #print ("vol:" + str(speaker.increaseVolume()))
+    # print ("vol:" + str(speaker.increaseVolume()))
     speaker.volume = None
-    #print("getvol: ", speaker.__getVolume())
+    # print("getvol: ", speaker.__getVolume())
     speaker.muted = False
     print("getvol: ", speaker.volume)
     speaker.volume = 0.6
@@ -298,7 +300,7 @@ def mainTest1():
 
 
 def mainTest2():
-    host = '192.168.178.52'
+    host = "192.168.178.52"
     port = 50001
     service = KefSpeaker(host, port)
     print("isOnline:" + str(service.online))
@@ -308,7 +310,7 @@ def mainTest2():
 
 
 def mainTest3():
-    host = '192.168.178.52'
+    host = "192.168.178.52"
     port = 50001
     speaker = KefSpeaker(host, port)
 
@@ -321,7 +323,7 @@ def mainTest3():
 
 
 def mainTest4():
-    host = '192.168.178.52'
+    host = "192.168.178.52"
     port = 50001
     speaker = KefSpeaker(host, port)
 
@@ -336,7 +338,7 @@ def mainTest4():
 
 
 def mainTest5():
-    host = '192.168.178.52'
+    host = "192.168.178.52"
     port = 50001
     speaker = KefSpeaker(host, port)
 
@@ -348,15 +350,15 @@ def mainTest5():
         print("Volume:" + str(speaker.volume))
         sleep(5)
 
-        #speaker.muted = True
+        # speaker.muted = True
         print("Is Mutted:" + str(speaker.muted))
         # sleep(5)
-        #speaker.muted = False
-        #print("Is Mutted:" + str(speaker.muted))
+        # speaker.muted = False
+        # print("Is Mutted:" + str(speaker.muted))
         # sleep(5)
 
         sleep(5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     mainTest3()

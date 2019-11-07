@@ -13,12 +13,22 @@ import voluptuous as vol
 import json
 from enum import Enum
 from homeassistant.components.media_player import (
-    PLATFORM_SCHEMA, SUPPORT_SELECT_SOURCE, SUPPORT_VOLUME_MUTE,
-    SUPPORT_VOLUME_SET, SUPPORT_TURN_ON, SUPPORT_VOLUME_STEP, SUPPORT_TURN_OFF,
-    MediaPlayerDevice
+    PLATFORM_SCHEMA,
+    SUPPORT_SELECT_SOURCE,
+    SUPPORT_VOLUME_MUTE,
+    SUPPORT_VOLUME_SET,
+    SUPPORT_TURN_ON,
+    SUPPORT_VOLUME_STEP,
+    SUPPORT_TURN_OFF,
+    MediaPlayerDevice,
 )
 from homeassistant.const import (
-    CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON, STATE_STANDBY
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    STATE_OFF,
+    STATE_ON,
+    STATE_STANDBY,
 )
 from homeassistant.helpers import config_validation as cv
 from custom_components.media_player.pykef import KefSpeaker, InputSource
@@ -28,9 +38,9 @@ _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
 
 
-DEFAULT_NAME = 'KEFWIRELESS'
+DEFAULT_NAME = "KEFWIRELESS"
 DEFAULT_PORT = 50001
-DATA_KEFWIRELESS = 'kefwireless'
+DATA_KEFWIRELESS = "kefwireless"
 # If a new source is selected, do not override source in update for this amount
 #  of seconds
 UPDATE_TIMEOUT = 1.0
@@ -43,36 +53,42 @@ CHANGE_STATE_TIMEOUT = 30.0
 WAIT_FOR_ONLINE_STATE = 10.0
 
 # configure source options to communicate to HA
-KEF_LS50_SOURCE_DICT = collections.OrderedDict([
-    ('1', str(InputSource.Wifi)),
-    ('2', str(InputSource.Bluetooth)),
-    ('3', str(InputSource.Aux)),
-    ('4', str(InputSource.Opt)),
-    ('5', str(InputSource.Usb))
-])
+KEF_LS50_SOURCE_DICT = collections.OrderedDict(
+    [
+        ("1", str(InputSource.Wifi)),
+        ("2", str(InputSource.Bluetooth)),
+        ("3", str(InputSource.Aux)),
+        ("4", str(InputSource.Opt)),
+        ("5", str(InputSource.Usb)),
+    ]
+)
 
 # supported features
 SUPPORT_KEFWIRELESS = (
-    SUPPORT_VOLUME_SET | SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE |
-    SUPPORT_SELECT_SOURCE | SUPPORT_TURN_OFF
+    SUPPORT_VOLUME_SET
+    | SUPPORT_VOLUME_STEP
+    | SUPPORT_VOLUME_MUTE
+    | SUPPORT_SELECT_SOURCE
+    | SUPPORT_TURN_OFF
 )
 
-CONF_TURN_ON_SERVICE = 'turn_on_service'
-CONF_TURN_ON_DATA = 'turn_on_data'
+CONF_TURN_ON_SERVICE = "turn_on_service"
+CONF_TURN_ON_DATA = "turn_on_data"
 
 # yaml configuration
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Optional(CONF_HOST): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    vol.Optional(CONF_TURN_ON_SERVICE): cv.service,
-    vol.Optional(CONF_TURN_ON_DATA): cv.string,
-})
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+    {
+        vol.Optional(CONF_HOST): cv.string,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
+        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+        vol.Optional(CONF_TURN_ON_SERVICE): cv.service,
+        vol.Optional(CONF_TURN_ON_DATA): cv.string,
+    }
+)
 
 
 # setup of component
-def setup_platform(hass, config, add_devices,
-                   discovery_info=None):
+def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup Kef platform."""
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
@@ -80,14 +96,33 @@ def setup_platform(hass, config, add_devices,
     turn_on_service = config.get(CONF_TURN_ON_SERVICE)
     turn_on_data = config.get(CONF_TURN_ON_DATA)
 
-    _LOGGER.debug("Setting up " + DATA_KEFWIRELESS + " + using " + "host:" +
-                  str(host) + ", port:" + str(port) + ", name:" + str(name))
     _LOGGER.debug(
-        "Setting up source_dict " + str(KEF_LS50_SOURCE_DICT))
+        "Setting up "
+        + DATA_KEFWIRELESS
+        + " + using "
+        + "host:"
+        + str(host)
+        + ", port:"
+        + str(port)
+        + ", name:"
+        + str(name)
+    )
+    _LOGGER.debug("Setting up source_dict " + str(KEF_LS50_SOURCE_DICT))
 
     # Add devices
-    add_devices([KefWireless(name, host, port, turn_on_service,
-                             turn_on_data, KEF_LS50_SOURCE_DICT, hass)])
+    add_devices(
+        [
+            KefWireless(
+                name,
+                host,
+                port,
+                turn_on_service,
+                turn_on_data,
+                KEF_LS50_SOURCE_DICT,
+                hass,
+            )
+        ]
+    )
 
 
 class States(Enum):
@@ -100,8 +135,9 @@ class States(Enum):
 class KefWireless(MediaPlayerDevice):
     """Kef Player Object."""
 
-    def __init__(self, name, host, port, turn_on_service, turn_on_data,
-                 source_dict, hass):
+    def __init__(
+        self, name, host, port, turn_on_service, turn_on_data, source_dict, hass
+    ):
         """Initialize the media player."""
         self._hass = hass
         self._name = name
@@ -134,7 +170,7 @@ class KefWireless(MediaPlayerDevice):
         ret.append("self._mute=" + str(self._mute))
         ret.append("self._source=" + str(self._source))
         ret.append("self._volume=" + str(self._volume))
-        return ', '.join([str(x) for x in ret])
+        return ", ".join([str(x) for x in ret])
 
     def __is_turning_on_supported(self):
         return self._turn_on_service and self._turn_on_data
@@ -147,8 +183,7 @@ class KefWireless(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
-        if (self._state in
-                [States.Offline, States.TurningOn, States.TurningOff]):
+        if self._state in [States.Offline, States.TurningOn, States.TurningOff]:
             return STATE_OFF
         elif self._state is States.Online:
             return STATE_ON
@@ -163,8 +198,12 @@ class KefWireless(MediaPlayerDevice):
             updated_needed = True
         try:
             isOnline = self._speaker.online
-            if (isOnline and self._state in
-                    [States.Online, States.Offline, States.TurningOn, None]):
+            if isOnline and self._state in [
+                States.Online,
+                States.Offline,
+                States.TurningOn,
+                None,
+            ]:
                 if updated_needed:
                     self._mute = self._speaker.muted
                     self._source = str(self._speaker.source)
@@ -196,8 +235,9 @@ class KefWireless(MediaPlayerDevice):
         """Flag media player features that are supported.
             Return feature set based on the turn_on_service configuration
         """
-        return (SUPPORT_KEFWIRELESS |
-                (SUPPORT_TURN_ON if self.__is_turning_on_supported() else 0))
+        return SUPPORT_KEFWIRELESS | (
+            SUPPORT_TURN_ON if self.__is_turning_on_supported() else 0
+        )
 
     def turn_off(self):
         """Turn the media player off."""
@@ -214,8 +254,11 @@ class KefWireless(MediaPlayerDevice):
 
         # even if the SUPPORT_TURN_ON is not set as supported feature, HA still
         # offers to call turn_on, thus we have to exit here to prevent errors
-        if (not self.__is_turning_on_supported() or
-                self._state in [States.Online, States.TurningOn, None]):
+        if not self.__is_turning_on_supported() or self._state in [
+            States.Online,
+            States.TurningOn,
+            None,
+        ]:
             return
 
         # note that turn_on_service has the correct syntax as we validated the
@@ -227,8 +270,7 @@ class KefWireless(MediaPlayerDevice):
         # a python dict this input is specified as a string. I was not able to
         # use config validation to make sure it is a dict
         service_data = json.loads(self._turn_on_data)
-        self._hass.services.call(
-            service_domain, service_name, service_data, False)
+        self._hass.services.call(service_domain, service_name, service_data, False)
         self._state = States.TurningOn
         self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
 
