@@ -1,67 +1,45 @@
-"""
-Support for interfacing HA with the KEF Wireless Speakers .
+"""Platform for the KEF Wireless Speakers."""
 
-For more details about this platform, please refer to the documentation at
-https://github.com/Gronis/pykef
-"""
-
-
-import collections
+import json
 import logging
 import time
-import voluptuous as vol
-import json
 from enum import Enum
+
+import voluptuous as vol
 from homeassistant.components.media_player import (
     PLATFORM_SCHEMA,
     SUPPORT_SELECT_SOURCE,
+    SUPPORT_TURN_OFF,
+    SUPPORT_TURN_ON,
     SUPPORT_VOLUME_MUTE,
     SUPPORT_VOLUME_SET,
-    SUPPORT_TURN_ON,
     SUPPORT_VOLUME_STEP,
-    SUPPORT_TURN_OFF,
     MediaPlayerDevice,
 )
-from homeassistant.const import (
-    CONF_HOST,
-    CONF_NAME,
-    CONF_PORT,
-    STATE_OFF,
-    STATE_ON,
-    STATE_STANDBY,
-)
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON
 from homeassistant.helpers import config_validation as cv
-from custom_components.media_player.pykef import KefSpeaker, InputSource
 
+from custom_components.kef.pykef import InputSource, KefSpeaker
 
 _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
 
 
-DEFAULT_NAME = "KEFWIRELESS"
+DEFAULT_NAME = "KEF"
 DEFAULT_PORT = 50001
-DATA_KEFWIRELESS = "kefwireless"
+DATA_KEFWIRELESS = "kef"
 # If a new source is selected, do not override source in update for this amount
 #  of seconds
 UPDATE_TIMEOUT = 1.0
 # When turning off/on the speaker, do not query it for CHANGE_STATE_TIMEOUT,
-# since it takes
-# some time for it to go offline/onlne
+# since it takes some time for it to go offline/online
 CHANGE_STATE_TIMEOUT = 30.0
 # If we try to control the speaker while offline, wait for the speaker to come
 # online (in secs)
 WAIT_FOR_ONLINE_STATE = 10.0
 
 # configure source options to communicate to HA
-KEF_LS50_SOURCE_DICT = collections.OrderedDict(
-    [
-        ("1", str(InputSource.Wifi)),
-        ("2", str(InputSource.Bluetooth)),
-        ("3", str(InputSource.Aux)),
-        ("4", str(InputSource.Opt)),
-        ("5", str(InputSource.Usb)),
-    ]
-)
+KEF_LS50_SOURCE_DICT = {str(i + 1): str(s) for i, s in enumerate(InputSource)}
 
 # supported features
 SUPPORT_KEFWIRELESS = (
@@ -78,7 +56,7 @@ CONF_TURN_ON_DATA = "turn_on_data"
 # yaml configuration
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
-        vol.Optional(CONF_HOST): cv.string,
+        vol.Required(CONF_HOST): cv.string,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_TURN_ON_SERVICE): cv.service,
@@ -88,7 +66,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 # setup of component
-def setup_platform(hass, config, add_devices, discovery_info=None):
+def setup_platform(hass, config, add_entities, discovery_info=None):
     """Setup Kef platform."""
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
@@ -97,32 +75,15 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     turn_on_data = config.get(CONF_TURN_ON_DATA)
 
     _LOGGER.debug(
-        "Setting up "
-        + DATA_KEFWIRELESS
-        + " + using "
-        + "host:"
-        + str(host)
-        + ", port:"
-        + str(port)
-        + ", name:"
-        + str(name)
+        f"Setting up {DATA_KEFWIRELESS} with host: {host}, port: {port},"
+        " name: {name}, source_dict: {KEF_LS50_SOURCE_DICT}"
     )
-    _LOGGER.debug("Setting up source_dict " + str(KEF_LS50_SOURCE_DICT))
 
     # Add devices
-    add_devices(
-        [
-            KefWireless(
-                name,
-                host,
-                port,
-                turn_on_service,
-                turn_on_data,
-                KEF_LS50_SOURCE_DICT,
-                hass,
-            )
-        ]
+    media_player = KefMediaPlayer(
+        name, host, port, turn_on_service, turn_on_data, KEF_LS50_SOURCE_DICT, hass
     )
+    add_entities([media_player])
 
 
 class States(Enum):
@@ -132,7 +93,7 @@ class States(Enum):
     TurningOff = 4
 
 
-class KefWireless(MediaPlayerDevice):
+class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
     def __init__(
@@ -142,7 +103,7 @@ class KefWireless(MediaPlayerDevice):
         self._hass = hass
         self._name = name
         self._source_dict = source_dict
-        self._speaker = KefSpeaker(host, port)
+        self._speaker = KefSpeaker(host, port, ioloop=hass.loop)
         self._turn_on_service = turn_on_service
         self._turn_on_data = turn_on_data
 
@@ -153,26 +114,26 @@ class KefWireless(MediaPlayerDevice):
         self._volume = None
         self._update_timeout = time.time() - CHANGE_STATE_TIMEOUT
 
-    def __wait_for_online_state(self):
+    def _internal_state(self):
+        """Return text with the internal states, just for debugging."""
+        return (
+            f"self._state={self._state}, self._mute={self._mute},"
+            " self._source={self._source}, self._volume={self._volume}"
+        )
+
+    def _ensure_online(self):
         """Use this function to wait for online state."""
         time_to_wait = WAIT_FOR_ONLINE_STATE
-        while time_to_wait > 0 and self._state is not States.Online:
+        while time_to_wait > 0:
             time_to_sleep = 0.1
             time_to_wait -= time_to_sleep
             time.sleep(time_to_sleep)
             if self._state is States.TurningOn:
                 time_to_wait = 10
+            if self._state is States.Online:
+                return
 
-    def __internal_state(self):
-        """Return text with the internal states, just for debugging."""
-        ret = []
-        ret.append("self._state=" + str(self._state))
-        ret.append("self._mute=" + str(self._mute))
-        ret.append("self._source=" + str(self._source))
-        ret.append("self._volume=" + str(self._volume))
-        return ", ".join([str(x) for x in ret])
-
-    def __is_turning_on_supported(self):
+    def _is_turning_on_supported(self):
         return self._turn_on_service and self._turn_on_data
 
     @property
@@ -183,10 +144,11 @@ class KefWireless(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
-        if self._state in [States.Offline, States.TurningOn, States.TurningOff]:
-            return STATE_OFF
-        elif self._state is States.Online:
-            return STATE_ON
+        if isinstance(self._state, States):
+            if self._state is States.Online:
+                return STATE_ON
+            else:
+                return STATE_OFF
         return None
 
     def update(self):
@@ -197,8 +159,8 @@ class KefWireless(MediaPlayerDevice):
                 self._state = States.Offline
             updated_needed = True
         try:
-            isOnline = self._speaker.online
-            if isOnline and self._state in [
+            is_online = self._speaker.online
+            if is_online and self._state in [
                 States.Online,
                 States.Offline,
                 States.TurningOn,
@@ -214,11 +176,11 @@ class KefWireless(MediaPlayerDevice):
                 self._source = None
                 self._volume = None
                 self._state = States.Offline
-        except Exception as ex:
-            _LOGGER.debug("update: " + self.__internal_state())
-            _LOGGER.debug(ex)
+        except Exception as e:
+            _LOGGER.debug("update: " + self._internal_state())
+            _LOGGER.debug(e)
 
-        _LOGGER.debug("update: " + self.__internal_state())
+        _LOGGER.debug("update: " + self._internal_state())
 
     @property
     def volume_level(self):
@@ -236,13 +198,13 @@ class KefWireless(MediaPlayerDevice):
             Return feature set based on the turn_on_service configuration
         """
         return SUPPORT_KEFWIRELESS | (
-            SUPPORT_TURN_ON if self.__is_turning_on_supported() else 0
+            SUPPORT_TURN_ON if self._is_turning_on_supported() else 0
         )
 
     def turn_off(self):
         """Turn the media player off."""
         try:
-            response = self._speaker.turnOff()
+            response = self._speaker.turn_off()
             if response:
                 self._state = States.TurningOff
                 self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
@@ -254,17 +216,15 @@ class KefWireless(MediaPlayerDevice):
 
         # even if the SUPPORT_TURN_ON is not set as supported feature, HA still
         # offers to call turn_on, thus we have to exit here to prevent errors
-        if not self.__is_turning_on_supported() or self._state in [
+        if not self._is_turning_on_supported() or self._state in [
             States.Online,
             States.TurningOn,
             None,
         ]:
             return
 
-        # note that turn_on_service has the correct syntax as we validated the
-        # input
-        service_domain = self._turn_on_service.split(".")[0]
-        service_name = self._turn_on_service.split(".")[1]
+        # note that turn_on_service has the correct syntax as we validated the input
+        service_domain, service_name, *_ = self._turn_on_service.split(".")
 
         # this might need some more work. The self._hass.services.call expects
         # a python dict this input is specified as a string. I was not able to
@@ -276,19 +236,19 @@ class KefWireless(MediaPlayerDevice):
 
     def volume_up(self):
         """Volume up the media player."""
-        self.__wait_for_online_state()
+        self._ensure_online()
         try:
-            self._speaker.increaseVolume()
+            self._speaker.increase_volume()
             self._volume = self._speaker.volume
             self._update_timeout = time.time() + UPDATE_TIMEOUT
         except Exception:
-            _LOGGER.warning("increaseVolume: failed")
+            _LOGGER.warning("increase_volume: failed")
 
     def volume_down(self):
         """Volume down the media player."""
-        self.__wait_for_online_state()
+        self._ensure_online()
         try:
-            self._speaker.decreaseVolume()
+            self._speaker.decrease_volume()
             self._volume = self._speaker.volume
             self._update_timeout = time.time() + UPDATE_TIMEOUT
         except Exception:
@@ -296,7 +256,7 @@ class KefWireless(MediaPlayerDevice):
 
     def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        self.__wait_for_online_state()
+        self._ensure_online()
         try:
             self._speaker.volume = volume
             self._volume = volume
@@ -306,7 +266,7 @@ class KefWireless(MediaPlayerDevice):
 
     def select_source(self, source):
         """Select input source."""
-        self.__wait_for_online_state()
+        self._ensure_online()
         try:
             input_source = InputSource.from_str(source)
             if input_source:
@@ -314,14 +274,14 @@ class KefWireless(MediaPlayerDevice):
                 self._speaker.source = input_source
                 self._update_timeout = time.time() + UPDATE_TIMEOUT
             else:
-                _LOGGER.warning("select_source: unknown input " + str(source))
+                _LOGGER.warning(f"select_source: unknown input {source}")
         except Exception:
             _LOGGER.warning("select_source: failed")
 
     @property
     def source(self):
         """Name of the current input source."""
-        _LOGGER.debug("source - returning " + str(self._source))
+        _LOGGER.debug(f"source - returning {self._source}")
         return self._source
 
     @property
