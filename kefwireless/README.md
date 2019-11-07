@@ -1,11 +1,7 @@
 # Python interface to control KEF speakers
+Supported: KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
 
-#### Unmaintained
-Since I recently sold of my KEF LS50 Wireless speakers, I will no longer maintain this repository. If you are interested in maintaining this repository, let me know [here](https://github.com/Gronis/pykef/issues/5).
-
-Supported devices:
-- KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
-- KEF LSX
+Untested: KEF LSX
 
 ## Features supported
 - Get and set volume
@@ -14,14 +10,12 @@ Supported devices:
 - Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
 - Turn off speaker
-- Turn on (KEF LSX only)
+- Turn on speaker (via HA service call)
 
 ## Features unfortunatly unsupported
-- Turn on is impossible over tcp/ip (KEF LS50 Wireless) because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
+- Turn on is impossible over tcp/ip because the speaker turns off network interface when turned off. This is true for LS50 Wireless. LSX should be possible to turn on.
+- LS50 speakers take about 20 secongs to boot. Thus, after turning them on please be patient.
 
-Note: One workaround to turning on is to use IR commands to turn on. I have included a [lirc config](lirc/KEF_LS50_WIRELESS.lircd) with all the keys on the remote. Note that each command has to be sent twice to work (at least for me).
-
-Note: One workaround to turning on is to use IR commands to turn on. I have included a [lirc config](lirc/KEF_LS50_WIRELESS.lircd) with all the keys on the remote. Note that each command has to be sent twice to work (at least for me).
 
 ## Install
 ```bash
@@ -95,8 +89,32 @@ python3 setup.py sdist bdist_wheel
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
 
+### Use in Home Assistant
+1. Create folder in your home assistant main folder:
+```bash
+mkdir custom_components/media_player
+```
+2. Copy pykef.py and kefwireless.py into that folder. This will make the custom component kefwireless available to Home Assistant:
+```bash
+cp pykef.py custom_components/media_player
+cp kefwireless.py custom_components/media_player
+```
+3. Add component to Home Assistant by adding to configuration.yaml:
+```bash
+media_player:
+   - platform: kefwireless
+     host: 192.168.x.x # change to the IP of you speaker, no autodetection yet
+     name: MyLS50W # optional, the name you want to see in Home Assistant
+     turn_on_service: switch.turn_on # optional, place a HA service to call in here: domain.service
+     turn_on_data: '{"entity_id": "switch.some_switch"}' # optional, place the service data in here. Must be in quotation marks ('). Must be one line
+```
+
+
+
 ## License
 MIT License
 
 ## Authors
 - Robin Grönberg
+- Bastian Beggel
+- chimpy (wireshark god)

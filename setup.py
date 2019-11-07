@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
-import setuptools
-import pykef
 import shutil
+
+import setuptools
+
+import pykef
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -10,14 +12,14 @@ with open("README.md", "r") as fh:
 shutil.rmtree("dist", ignore_errors=True)
 
 setuptools.setup(
-    name='pykef',
-    version='1.3.0',
-    author='Robin Grönberg',
-    author_email='robingronberg@gmail.com',
-    description='A python implementation to interface Kef speakers over tcp/ip',
+    name="pykef",
+    version="1.3.0",
+    author="Robin Grönberg",
+    author_email="robingronberg@gmail.com",
+    description="A python implementation to interface Kef speakers over tcp/ip",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/Gronis/pykef/',
+    url="https://github.com/Gronis/pykef/",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
