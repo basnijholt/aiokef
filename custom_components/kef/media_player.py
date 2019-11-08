@@ -175,7 +175,7 @@ class KefMediaPlayer(MediaPlayerDevice):
         try:
             if self._speaker.online and self._state is not States.TurningOff:
                 if updated_needed:
-                    self._muted = self._speaker.muted
+                    self._muted = self._speaker.is_muted()
                     self._source = str(self._speaker.get_source())
                     self._volume = self._speaker.get_volume()
                 self._state = States.Online

@@ -208,7 +208,7 @@ class KefSpeaker:
     def get_volume(self):
         """Volume level of the media player (0..1). None if muted."""
         volume = self._get_volume(scale=True)
-        return volume if not self.muted else None
+        return volume if not self.is_muted() else None
 
     def set_volume(self, value: float):
         volume = int(max(0.0, min(self.maximum_volume, value)) * _SCALE)
@@ -217,7 +217,7 @@ class KefSpeaker:
     def _change_volume(self, step: float):
         """Change volume by `step`."""
         volume = self.get_volume()
-        if not self.muted:
+        if not self.is_muted():
             new_volume = volume + step
             self.set_volume(new_volume)
             return new_volume
@@ -231,7 +231,7 @@ class KefSpeaker:
         return self._change_volume(-self.volume_step)
 
     @property
-    def muted(self):
+    def is_muted(self):
         return self._get_volume(scale=False) > 128
 
     def mute(self):
