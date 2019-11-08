@@ -222,11 +222,11 @@ class KefSpeaker:
             self.set_volume(new_volume)
             return new_volume
 
-    def increase_volume(self):
+    def increase_volume(self) -> float:
         """Increase volume by `self.volume_step`."""
         return self._change_volume(self.volume_step)
 
-    def decrease_volume(self):
+    def decrease_volume(self) -> float:
         """Decrease volume by `self.volume_step`."""
         return self._change_volume(-self.volume_step)
 
@@ -236,14 +236,10 @@ class KefSpeaker:
 
     def mute(self):
         volume = self._get_volume(scale=False)
-        if volume is None:
-            return
         self._set_volume(int(volume) % 128 + 128)
 
     def unmute(self):
         volume = self._get_volume(scale=False)
-        if volume is None:
-            return
         self._set_volume(int(volume) % 128)
 
     @property
@@ -258,7 +254,7 @@ class KefSpeaker:
         # used source selected.
         if source is None:
             source = InputSource.Wifi
-        return self.set_source(source)
+        self.set_source(source)
 
     @retry(ConnectionError, tries=5)
     def turn_off(self):

@@ -217,19 +217,17 @@ class KefMediaPlayer(MediaPlayerDevice):
     @just_try
     def turn_off(self):
         """Turn the media player off."""
-        response = self._speaker.turn_off()
-        if response:
-            self._state = States.TurningOff
-            self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
+        self._speaker.turn_off()
+        self._state = States.TurningOff
+        self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
     @just_try
     def turn_on(self):
         """Turn the media player on."""
         source = None  # XXX: implement that it uses the latest used source
-        response = self._speaker.turn_on(source)
-        if response:
-            self._state = States.TurningOn
-            self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
+        self._speaker.turn_on(source)
+        self._state = States.TurningOn
+        self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
     @just_try
     def volume_up(self):
