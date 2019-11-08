@@ -73,7 +73,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     _LOGGER.debug(
         f"Setting up {DATA_KEF} with host: {host}, port: {port},"
-        " name: {name}, source_dict: {KEF_LS50_SOURCE_DICT}"
+        f" name: {name}, source_dict: {KEF_LS50_SOURCE_DICT}"
     )
 
     media_player = KefMediaPlayer(
@@ -186,7 +186,7 @@ class KefMediaPlayer(MediaPlayerDevice):
                 self._volume = None
                 self._state = States.Offline
         except Exception as e:
-            _LOGGER.debug("Error in `update`: {e}")
+            _LOGGER.debug(f"Error in `update`: {e}")
 
     @property
     def volume_level(self):
