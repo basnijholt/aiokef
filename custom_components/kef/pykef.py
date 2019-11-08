@@ -243,6 +243,7 @@ class KefSpeaker:
 
     @property
     def online(self):
+        # This is a property because `_refresh_connection` is very fast, ~5 ms.
         with contextlib.suppress(Exception):
             self._refresh_connection()
         return self._online
