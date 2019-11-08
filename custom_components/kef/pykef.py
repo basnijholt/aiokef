@@ -198,7 +198,7 @@ class KefSpeaker:
         return volume / _SCALE if scale else volume
 
     @retry(ConnectionError, tries=5)
-    def _set_volume(self, volume):
+    def _set_volume(self, volume: int):
         _LOGGER.debug(f"_set_volume(volume={volume}")
         # write vol level in 4th place, add 128 to current level to mute
         msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
@@ -210,11 +210,11 @@ class KefSpeaker:
         volume = self._get_volume(scale=True)
         return volume if not self.muted else None
 
-    def set_volume(self, value):
+    def set_volume(self, value: float):
         volume = int(max(0.0, min(self.maximum_volume, value)) * _SCALE)
         self._set_volume(volume)
 
-    def _change_volume(self, step):
+    def _change_volume(self, step: float):
         """Change volume by `step`."""
         volume = self.get_volume()
         if not self.muted:
