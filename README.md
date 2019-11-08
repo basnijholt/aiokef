@@ -17,7 +17,7 @@ Untested: KEF LSX
 - LS50 Wireless take about 20s to boot.
 
 ## Discussion
-See [home assistant thread](https://community.home-assistant.io/t/kef-ls50-wireless/)
+See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/).
 
 ## Use in Home Assistant
 1. Create folder in your home assistant `config` folder:
