@@ -27,21 +27,16 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_NAME = "KEF"
 DEFAULT_PORT = 50001
-DATA_KEFWIRELESS = "kef"
-# If a new source is selected, do not override source in update for this amount
-#  of seconds
+DATA_KEF = "kef"  # XXX: do something with this!
+# Timeout when a new source is selected.
 UPDATE_TIMEOUT = 1.0
-# When turning off/on the speaker, do not query it for CHANGE_STATE_TIMEOUT,
-# since it takes some time for it to go offline/online
-CHANGE_STATE_TIMEOUT = 30.0
-# If we try to control the speaker while offline, wait for the speaker to come
-# online (in secs)
+# Timeout when turning speaker on or off
+BOOTING_ON_OFF_TIMEOUT = 20.0
+# When changing volume or source, wait for the speaker until it is online.
 WAIT_FOR_ONLINE_STATE = 10.0
 
-# configure source options to communicate to HA
 KEF_LS50_SOURCE_DICT = {str(i + 1): str(s) for i, s in enumerate(InputSource)}
 
-# supported features
 SUPPORT_KEF = (
     SUPPORT_VOLUME_SET
     | SUPPORT_VOLUME_STEP
@@ -104,7 +99,7 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._mute = None
         self._source = None
         self._volume = None
-        self._update_timeout = time.time() - CHANGE_STATE_TIMEOUT
+        self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
 
     def _internal_state(self):
         """Return text with the internal states, just for debugging."""
@@ -193,17 +188,18 @@ class KefMediaPlayer(MediaPlayerDevice):
             response = self._speaker.turn_off()
             if response:
                 self._state = States.TurningOff
-                self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
+                self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
         except Exception:
             _LOGGER.warning("turn_off: failed")
 
     def turn_on(self):
         """Turn the media player on."""
         try:
-            response = self._speaker.turn_on()
+            source = None  # XXX: implement that it uses the latest used source
+            response = self._speaker.turn_on(source)
             if response:
                 self._state = States.TurningOn
-                self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
+                self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
         except Exception:
             _LOGGER.warning("turn_on: failed")
 
