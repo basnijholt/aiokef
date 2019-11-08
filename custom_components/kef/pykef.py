@@ -192,10 +192,10 @@ class KefSpeaker:
 
     @muted.setter
     def muted(self, value):
-        current_volume = self._get_volume()
-        if current_volume is None:
+        volume = self._get_volume()
+        if volume is None:
             return
-        self._set_volume(int(current_volume) % 128 + 128 * int(bool(value)))
+        self._set_volume(int(volume) % 128 + 128 * int(bool(value)))
 
     @property
     def online(self):
@@ -216,9 +216,10 @@ class KefSpeaker:
     def increase_volume(self):
         """Increase volume by volume_step."""
         volume = self.volume
-        if volume:
+        if not self.muted:
             self.volume = volume + self.volume_step
+            return self.volume
 
     def decrease_volume(self):
         """Decrease volume by volume_step."""
-        self.increase_volume(-self.volume_step)
+        return self.increase_volume(-self.volume_step)

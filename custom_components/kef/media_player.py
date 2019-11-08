@@ -162,11 +162,9 @@ class KefMediaPlayer(MediaPlayerDevice):
     def state(self):
         """Return the state of the device."""
         if isinstance(self._state, States):
-            if self._state is States.Online:
-                return STATE_ON
-            else:
-                return STATE_OFF
-        return None
+            return STATE_ON if self._state is States.Online else STATE_OFF
+        else:
+            return None
 
     def update(self):
         """Update latest state."""
