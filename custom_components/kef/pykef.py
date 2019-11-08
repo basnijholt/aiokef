@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-"""pykef is the library for interfacing with kef speakers"""
+"""pykef is the library for interfacing with KEF speakers"""
 
 import asyncio
 import contextlib
@@ -13,8 +13,8 @@ from time import sleep, time
 _LOGGER = logging.getLogger(__name__)
 _VOL_STEP = 0.05  # 5 percent
 _RESPONSE_OK = 17
-_TIMEOUT = 1.0  # in secs
-_KEEP_ALIVE = 1.0  # in secs
+_TIMEOUT = 1.0  # in seconds
+_KEEP_ALIVE = 1.0  # in seconds
 _SCALE = 100.0
 _RETRIES = 10
 
