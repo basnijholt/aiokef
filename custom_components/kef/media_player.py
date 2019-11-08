@@ -141,10 +141,10 @@ class KefMediaPlayer(MediaPlayerDevice):
     def _ensure_online(self):
         """Use this function to wait for online state."""
         time_to_wait = WAIT_FOR_ONLINE_STATE
+        time_to_sleep = 0.1
         while time_to_wait > 0:
             if self._state is States.Online:
                 return
-            time_to_sleep = 0.1
             time_to_wait -= time_to_sleep
             time.sleep(time_to_sleep)
             if self._state is States.TurningOn:
