@@ -109,6 +109,7 @@ def just_try(f):
             return f(*args, **kwargs)
         except Exception as e:
             _LOGGER.warning(f"{f.__name__} failed with {e}")
+
     return wrapper
 
 
@@ -132,13 +133,6 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._source = None
         self._volume = None
         self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
-
-    def _internal_state(self):
-        """Return text with the internal states, just for debugging."""
-        return (
-            f"self._state={self._state}, self._muted={self._muted},"
-            " self._source={self._source}, self._volume={self._volume}"
-        )
 
     def _ensure_online(self):
         """Use this function to wait for online state."""
@@ -165,36 +159,32 @@ class KefMediaPlayer(MediaPlayerDevice):
         else:
             return None
 
+    def _state_is_changing(self):
+        return self._state in (States.TurningOn, States.TurningOff)
+
     def update(self):
         """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
-        if self._state in [States.TurningOn, States.TurningOff]:
+        if self._state_is_changing():
             if updated_needed:
-                self._state = States.Offline
+                self._state = None
             updated_needed = True
+
         try:
             is_online = self._speaker.online
-            if is_online and self._state in [
-                States.Online,
-                States.Offline,
-                States.TurningOn,
-                None,
-            ]:
+            if is_online and self._state is not States.TurningOff:
                 if updated_needed:
                     self._muted = self._speaker.muted
                     self._source = str(self._speaker.get_source())
                     self._volume = self._speaker.get_volume()
                 self._state = States.Online
-            elif self._state in [States.Online, States.Offline, None]:
+            elif not self._state_is_changing():
                 self._muted = None
                 self._source = None
                 self._volume = None
                 self._state = States.Offline
         except Exception as e:
-            _LOGGER.debug("Update: " + self._internal_state())
-            _LOGGER.debug(e)
-
-        _LOGGER.debug("Update: " + self._internal_state())
+            _LOGGER.debug("Error in `update`: {e}")
 
     @property
     def volume_level(self):
