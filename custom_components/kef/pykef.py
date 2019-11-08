@@ -90,7 +90,7 @@ class KefSpeaker:
         Retry at max for 100 times, with longer interval each time.
         Update timestamp that keep connection alive.
 
-        If unable to connect due to no route to host, set to offline
+        If unable to connect due to no route to host, set to offline.
 
         If speaker is offline, max retries is infinite.
         """
@@ -139,7 +139,7 @@ class KefSpeaker:
             retries += 1
 
     async def _disconnect_if_passive(self):
-        """Disconnect if connection is not used for a while (old timestamp)."""
+        """Disconnect if connection is not used for _KEEP_ALIVE seconds."""
         while True:
             time_is_up = time.time() - self._last_timestamp > _KEEP_ALIVE
             if self._connected and time_is_up:
