@@ -10,7 +10,6 @@ from enum import Enum
 from time import sleep, time
 
 _LOGGER = logging.getLogger(__name__)
-_VOL_STEP = 0.05  # 5% steps
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
@@ -37,15 +36,16 @@ class InputSource(Enum):
 
 
 class KefSpeaker:
-    def __init__(self, host, port, *, ioloop=None):
+    def __init__(self, host, port, volume_step=0.05, *, ioloop=None):
         self._socket = None
         self._connected = False
         self._online = False
         self._last_timestamp = 0
-        self._host = host
-        self._port = int(port)
+        self.host = host
+        self.port = int(port)
         self._ioloop = ioloop or asyncio.get_event_loop()
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
+        self.volume_step = volume_step
 
     def _refresh_connection(self):
         """Connect if not connected.
@@ -76,7 +76,7 @@ class KefSpeaker:
         while retries < _RETRIES:
             self._last_timestamp = time()
             try:
-                self._socket.connect((self._host, self._port))
+                self._socket.connect((self.host, self.port))
                 self._connected = True
                 self._online = True
                 _LOGGER.debug("Online")
@@ -210,19 +210,12 @@ class KefSpeaker:
         msg = bytes([0x53, 0x30, 0x81, 0x9B, 0x0B])
         return self._send_command(msg) == _RESPONSE_OK
 
-    def increase_volume(self, step=None):
-        """Increase volume by step, or 5% by default.
-
-        Constrait: 0.0 < step < 1.0.
-        """
+    def increase_volume(self):
+        """Increase volume by volume_step."""
         volume = self.volume
         if volume:
-            step = step or _VOL_STEP
-            self.volume = volume + step
+            self.volume = volume + self.volume_step
 
-    def decrease_volume(self, step=None):
-        """Decrease volume by step, or 5% by default.
-
-        Constrait: 0.0 < step < 1.0.
-        """
-        self.increase_volume(-(step or _VOL_STEP))
+    def decrease_volume(self):
+        """Decrease volume by volume_step."""
+        self.increase_volume(-self.volume_step)
