@@ -1,4 +1,4 @@
-"""pykef is the library for interfacing with KEF speakers"""
+"""A module for interacting with KEF wireless speakers."""
 
 import asyncio
 import contextlib
