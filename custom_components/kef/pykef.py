@@ -7,7 +7,6 @@ import logging
 import select
 import socket
 from enum import Enum
-from threading import Semaphore
 from time import sleep, time
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,7 +44,6 @@ class KefSpeaker:
         self._last_timestamp = 0
         self._host = host
         self._port = int(port)
-        self._semaphore = Semaphore()  # XXX: not sure if needed?
         self._ioloop = ioloop or asyncio.get_event_loop()
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
 
@@ -116,7 +114,6 @@ class KefSpeaker:
         """Send command to speakers, returns the response."""
         self._refresh_connection()
         if self._connected:
-            self._semaphore.acquire()
             try:
                 self._socket.sendall(message)
                 self._socket.setblocking(0)
@@ -128,8 +125,6 @@ class KefSpeaker:
                 self._socket.setblocking(1)
             except Exception as e:
                 raise OSError("_send_command failed") from e
-            finally:
-                self._semaphore.release()
         else:
             raise OSError("_send_command failed")
         return data[len(data) - 2] if data else None
