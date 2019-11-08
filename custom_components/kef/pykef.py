@@ -200,6 +200,12 @@ class KefSpeaker:
             self._refresh_connection()
         return self._online
 
+    def turn_on(self, source=None):
+        """The speaker can be turned on by selecting an InputSource."""
+        if source is None:
+            source = InputSource.Wifi
+        return self._set_source(source)
+
     def turn_off(self):
         msg = bytes([0x53, 0x30, 0x81, 0x9B, 0x0B])
         return self._send_command(msg) == _RESPONSE_OK
