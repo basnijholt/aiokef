@@ -290,11 +290,11 @@ class KefMediaPlayer(MediaPlayerDevice):
         _LOGGER.debug("source_list")
         return sorted(list(self._source_dict.values()))
 
-    def volume_mute(self, mute):
+    def mute_volume(self, mute):
         """Mute (true) or unmute (false) media player."""
         try:
             self._speaker.muted = mute
             self._mute = mute
             self._update_timeout = time.time() + UPDATE_TIMEOUT
         except Exception:
-            _LOGGER.warning("volume_mute: failed")
+            _LOGGER.warning("mute_volume: failed")
