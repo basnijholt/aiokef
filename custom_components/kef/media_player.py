@@ -1,5 +1,6 @@
 """Platform for the KEF Wireless Speakers."""
 
+import functools
 import logging
 import time
 from enum import Enum
@@ -99,18 +100,16 @@ class States(Enum):
     TurningOff = 4
 
 
-def try_this(wait=False):
-    def try_dis(f):
-        def wrapper(*args, **kwargs):
-            if wait:
-                self = args[0]
-                self._ensure_online()
-            try:
-                return f(*args, **kwargs)
-            except Exception as e:
-                _LOGGER.debug(f"{f.__name__} failed with {e}")
-        return wrapper
-    return try_dis
+def just_try(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            self = args[0]
+            self._ensure_online()
+            return f(*args, **kwargs)
+        except Exception as e:
+            _LOGGER.warning(f"{f.__name__} failed with {e}")
+    return wrapper
 
 
 class KefMediaPlayer(MediaPlayerDevice):
@@ -129,7 +128,7 @@ class KefMediaPlayer(MediaPlayerDevice):
 
         # Set internal states to None.
         self._state = None
-        self._mute = None
+        self._muted = None
         self._source = None
         self._volume = None
         self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
@@ -137,7 +136,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     def _internal_state(self):
         """Return text with the internal states, just for debugging."""
         return (
-            f"self._state={self._state}, self._mute={self._mute},"
+            f"self._state={self._state}, self._muted={self._muted},"
             " self._source={self._source}, self._volume={self._volume}"
         )
 
@@ -145,13 +144,13 @@ class KefMediaPlayer(MediaPlayerDevice):
         """Use this function to wait for online state."""
         time_to_wait = WAIT_FOR_ONLINE_STATE
         while time_to_wait > 0:
+            if self._state is States.Online:
+                return
             time_to_sleep = 0.1
             time_to_wait -= time_to_sleep
             time.sleep(time_to_sleep)
             if self._state is States.TurningOn:
                 time_to_wait = 10
-            if self._state is States.Online:
-                return
 
     @property
     def name(self):
@@ -182,12 +181,12 @@ class KefMediaPlayer(MediaPlayerDevice):
                 None,
             ]:
                 if updated_needed:
-                    self._mute = self._speaker.muted
-                    self._source = str(self._speaker.source)
-                    self._volume = self._speaker.volume
+                    self._muted = self._speaker.muted
+                    self._source = str(self._speaker.get_source())
+                    self._volume = self._speaker.get_volume()
                 self._state = States.Online
             elif self._state in [States.Online, States.Offline, None]:
-                self._mute = None
+                self._muted = None
                 self._source = None
                 self._volume = None
                 self._state = States.Offline
@@ -205,7 +204,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     @property
     def is_volume_muted(self):
         """Boolean if volume is currently muted."""
-        return self._mute
+        return self._muted
 
     @property
     def supported_features(self):
@@ -213,7 +212,17 @@ class KefMediaPlayer(MediaPlayerDevice):
         """
         return SUPPORT_KEF
 
-    @try_this(wait=False)
+    @property
+    def source(self):
+        """Name of the current input source."""
+        return self._source
+
+    @property
+    def source_list(self):
+        """List of available input sources."""
+        return sorted(list(self._source_dict.values()))
+
+    @just_try
     def turn_off(self):
         """Turn the media player off."""
         response = self._speaker.turn_off()
@@ -221,7 +230,7 @@ class KefMediaPlayer(MediaPlayerDevice):
             self._state = States.TurningOff
             self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
-    @try_this()
+    @just_try
     def turn_on(self):
         """Turn the media player on."""
         source = None  # XXX: implement that it uses the latest used source
@@ -230,52 +239,41 @@ class KefMediaPlayer(MediaPlayerDevice):
             self._state = States.TurningOn
             self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
-    @try_this()
+    @just_try
     def volume_up(self):
         """Volume up the media player."""
         self._volume = self._speaker.increase_volume()
         self._update_timeout = time.time() + UPDATE_TIMEOUT
 
-    @try_this()
+    @just_try
     def volume_down(self):
         """Volume down the media player."""
         self._volume = self._speaker.decrease_volume()
         self._update_timeout = time.time() + UPDATE_TIMEOUT
 
-    @try_this()
+    @just_try
     def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        self._speaker.volume = volume
+        self._speaker.set_volume(volume)
         self._volume = volume
         self._update_timeout = time.time() + UPDATE_TIMEOUT
 
-    @try_this()
+    @just_try
+    def mute_volume(self, mute):
+        """Mute (True) or unmute (False) media player."""
+        if mute:
+            self._speaker.mute()
+        else:
+            self._speaker.unmute()
+        self._muted = mute
+        self._update_timeout = time.time() + UPDATE_TIMEOUT
+
+    @just_try
     def select_source(self, source):
         """Select input source."""
         if source in self.source_list:
             self._source = str(source)
-            self._speaker.source = input_source
+            self._speaker.set_source(input_source)
             self._update_timeout = time.time() + UPDATE_TIMEOUT
         else:
             _LOGGER.warning(f"select_source: unknown input {source}")
-
-    @property
-    def source(self):
-        """Name of the current input source."""
-        _LOGGER.debug(f"source - returning {self._source}")
-        return self._source
-
-    @property
-    def source_list(self):
-        """List of available input sources."""
-        _LOGGER.debug("source_list")
-        return sorted(list(self._source_dict.values()))
-
-    def mute_volume(self, mute):
-        """Mute (true) or unmute (false) media player."""
-        try:
-            self._speaker.muted = mute
-            self._mute = mute
-            self._update_timeout = time.time() + UPDATE_TIMEOUT
-        except Exception:
-            _LOGGER.warning("mute_volume: failed")
