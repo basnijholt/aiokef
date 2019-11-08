@@ -181,10 +181,10 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def set_source(self, source):
+        _LOGGER.debug(f"set_source({source})")
         if isinstance(source, str):
             source = InputSource.from_str(source)
         assert isinstance(source, InputSource)
-        _LOGGER.debug(f"set_source({source})")
         if self._send_command(source.value) != _RESPONSE_OK:
             raise ConnectionError("Setting source failed.")
 
