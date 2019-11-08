@@ -195,7 +195,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     @property
     def supported_features(self):
         """Flag media player features that are supported.
-            Return feature set based on the turn_on_service configuration
+        Return feature set based on the turn_on_service configuration
         """
         return SUPPORT_KEFWIRELESS | (
             SUPPORT_TURN_ON if self._is_turning_on_supported() else 0
@@ -290,11 +290,11 @@ class KefMediaPlayer(MediaPlayerDevice):
         _LOGGER.debug("source_list")
         return sorted(list(self._source_dict.values()))
 
-    def mute_volume(self, mute):
+    def volume_mute(self, mute):
         """Mute (true) or unmute (false) media player."""
         try:
             self._speaker.muted = mute
             self._mute = mute
             self._update_timeout = time.time() + UPDATE_TIMEOUT
         except Exception:
-            _LOGGER.warning("mute_volume: failed")
+            _LOGGER.warning("volume_mute: failed")
