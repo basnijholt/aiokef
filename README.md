@@ -5,16 +5,11 @@ Untested: KEF LSX
 
 ## Supported features
 - Get and set volume
-- Mute and Unmute
+- Mute and unmute
 - Get and set source input
-- Get if the speakers are online
 - Automatically connects and disconnects when speakers goes online/offline
-- Turn off speaker
-- Turn on speaker (via HA service call)
+- Turn speaker on and off
 
-## Notes
-- Turning on is impossible over TCP/IP because the speaker turns off network interface when turned off. This is true for LS50 Wireless. The LSX should be possible to turn on.
-- LS50 Wireless take about 20s to boot.
 
 ## Discussion
 See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/).
@@ -29,10 +24,10 @@ cp -r custom_components/kef /path/to/config/custom_components/
 ```bash
 media_player:
    - platform: kefwireless
-     host: 192.168.x.x # change to the IP of you speaker, no autodetection yet
-     name: MyLS50W # optional, the name you want to see in Home Assistant
-     turn_on_service: switch.turn_on # optional, place a HA service to call in here: domain.service
-     turn_on_data: '{"entity_id": "switch.some_switch"}' # optional, place the service data in here. Must be in quotation marks ('). Must be one line
+     host: 192.168.x.x  # the IP of your speaker
+     name: MyAwesomeSpeaker  # optional, the name in Home Assistant
+     maximum_volume: 0.5  # optional, to avoid extremely loud volumes
+     volume_step: 0.05  # optional
 ```
 
 ## License

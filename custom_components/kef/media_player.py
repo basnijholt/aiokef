@@ -1,6 +1,5 @@
 """Platform for the KEF Wireless Speakers."""
 
-import json
 import logging
 import time
 from enum import Enum
@@ -27,12 +26,13 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_NAME = "KEF"
 DEFAULT_PORT = 50001
-DATA_KEF = "kef"  # XXX: do something with this!
-# Timeout when a new source is selected.
-UPDATE_TIMEOUT = 1.0
-# Timeout when turning speaker on or off
-BOOTING_ON_OFF_TIMEOUT = 20.0
-# When changing volume or source, wait for the speaker until it is online.
+DEFAULT_MAX_VOLUME = 0.5
+DEFAULT_VOLUME_STEP = 0.05
+DATA_KEF = "kef"
+
+UPDATE_TIMEOUT = 1.0  # Timeout when a new source is selected.
+BOOTING_ON_OFF_TIMEOUT = 20.0  # Timeout when turning speaker on or off.
+# When changing volume or source, wait for the speaker until it is online for:
 WAIT_FOR_ONLINE_STATE = 10.0
 
 KEF_LS50_SOURCE_DICT = {str(i + 1): str(s) for i, s in enumerate(InputSource)}
@@ -46,33 +46,50 @@ SUPPORT_KEF = (
     | SUPPORT_TURN_ON
 )
 
-# yaml configuration
+CONF_MAX_VOLUME = "maximum_volume"
+CONF_VOLUME_STEP = "volume_step"
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HOST): cv.string,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+        vol.Optional(CONF_MAX_VOLUME, default=DEFAULT_MAX_VOLUME): cv.small_float,
+        vol.Optional(CONF_VOLUME_STEP, default=DEFAULT_VOLUME_STEP): cv.small_float,
     }
 )
 
 
-# setup of component
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Setup Kef platform."""
+    if DATA_KEF not in hass.data:
+        hass.data[DATA_KEF] = {}
+
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
+    maximum_volume = config.get(CONF_MAX_VOLUME)
+    volume_step = config.get(CONF_VOLUME_STEP)
 
     _LOGGER.debug(
-        f"Setting up {DATA_KEFWIRELESS} with host: {host}, port: {port},"
+        f"Setting up {DATA_KEF} with host: {host}, port: {port},"
         " name: {name}, source_dict: {KEF_LS50_SOURCE_DICT}"
     )
 
-    # Add devices
     media_player = KefMediaPlayer(
-        name, host, port, KEF_LS50_SOURCE_DICT, hass
+        name,
+        host,
+        port,
+        maximum_volume=maximum_volume,
+        volume_step=volume_step,
+        source_dict=KEF_LS50_SOURCE_DICT,
+        hass=hass,
     )
-    add_entities([media_player])
+    unique_id = f"{host}:{port}"
+    if unique_id in hass.data[DATA_KEF]:
+        _LOGGER.debug(f"{unique_id} is already configured.")
+    else:
+        hass.data[DATA_KEF][unique_id] = media_player
+        add_entities([media_player])
 
 
 class States(Enum):
@@ -86,15 +103,17 @@ class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
     def __init__(
-        self, name, host, port, source_dict, hass
+        self, name, host, port, maximum_volume, volume_step, source_dict, hass
     ):
         """Initialize the media player."""
-        self._hass = hass
         self._name = name
+        self._hass = hass
         self._source_dict = source_dict
-        self._speaker = KefSpeaker(host, port, ioloop=self._hass.loop)
+        self._speaker = KefSpeaker(
+            host, port, volume_step, maximum_volume, ioloop=self._hass.loop
+        )
 
-        # set internal state to None
+        # Set internal states to None.
         self._state = None
         self._mute = None
         self._source = None
@@ -161,10 +180,10 @@ class KefMediaPlayer(MediaPlayerDevice):
                 self._volume = None
                 self._state = States.Offline
         except Exception as e:
-            _LOGGER.debug("update: " + self._internal_state())
+            _LOGGER.debug("Update: " + self._internal_state())
             _LOGGER.debug(e)
 
-        _LOGGER.debug("update: " + self._internal_state())
+        _LOGGER.debug("Update: " + self._internal_state())
 
     @property
     def volume_level(self):

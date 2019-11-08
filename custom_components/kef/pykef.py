@@ -36,7 +36,9 @@ class InputSource(Enum):
 
 
 class KefSpeaker:
-    def __init__(self, host, port, volume_step=0.05, *, ioloop=None):
+    def __init__(
+        self, host, port, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
+    ):
         self._socket = None
         self._connected = False
         self._online = False
@@ -46,6 +48,7 @@ class KefSpeaker:
         self._ioloop = ioloop or asyncio.get_event_loop()
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
         self.volume_step = volume_step
+        self.maximum_volume = maximum_volume
 
     def _refresh_connection(self):
         """Connect if not connected.
@@ -167,7 +170,7 @@ class KefSpeaker:
     @volume.setter
     def volume(self, value):
         if value:
-            volume = int(max(0.0, min(1.0, value)) * _SCALE)
+            volume = int(max(0.0, min(self.maximum_volume, value)) * _SCALE)
         else:
             current_volume = self._get_volume()
             if current_volume:
