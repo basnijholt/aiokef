@@ -40,6 +40,6 @@ MIT License
 
 ## Authors
 - Bas Nijholt
-- Robin Grönberg
-- Bastian Beggel
-- chimpy (wireshark god)
+- Robin Grönberg ([@Gronis](https://github.com/Gronis/pykef))
+- Bastian Beggel ([@bastianbeggel](https://github.com/bastianbeggel/hasskef))
+- chimpy ([@chimpy](https://github.com/chimpy))
