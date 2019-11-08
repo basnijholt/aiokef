@@ -114,17 +114,11 @@ class KefSpeaker:
         """Send command to speakers, returns the response."""
         self._refresh_connection()
         if self._connected:
-            try:
-                self._socket.sendall(message)
-                self._socket.setblocking(0)
-                ready = select.select([self._socket], [], [], _TIMEOUT)
-                if ready[0]:
-                    data = self._socket.recv(1024)
-                else:
-                    data = None
-                self._socket.setblocking(1)
-            except Exception as e:
-                raise OSError("_send_command failed") from e
+            self._socket.sendall(message)
+            self._socket.setblocking(0)
+            ready = select.select([self._socket], [], [], _TIMEOUT)
+            data = self._socket.recv(1024) if ready[0] else None
+            self._socket.setblocking(1)
         else:
             raise OSError("_send_command failed")
         return data[len(data) - 2] if data else None
