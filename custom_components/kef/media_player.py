@@ -99,6 +99,20 @@ class States(Enum):
     TurningOff = 4
 
 
+def try_this(wait=False):
+    def try_dis(f):
+        def wrapper(*args, **kwargs):
+            if wait:
+                self = args[0]
+                self._ensure_online()
+            try:
+                return f(*args, **kwargs)
+            except Exception as e:
+                _LOGGER.debug(f"{f.__name__} failed with {e}")
+        return wrapper
+    return try_dis
+
+
 class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
@@ -201,70 +215,51 @@ class KefMediaPlayer(MediaPlayerDevice):
         """
         return SUPPORT_KEF
 
+    @try_this(wait=False)
     def turn_off(self):
         """Turn the media player off."""
-        try:
-            response = self._speaker.turn_off()
-            if response:
-                self._state = States.TurningOff
-                self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
-        except Exception:
-            _LOGGER.warning("turn_off: failed")
+        response = self._speaker.turn_off()
+        if response:
+            self._state = States.TurningOff
+            self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
+    @try_this()
     def turn_on(self):
         """Turn the media player on."""
-        try:
-            source = None  # XXX: implement that it uses the latest used source
-            response = self._speaker.turn_on(source)
-            if response:
-                self._state = States.TurningOn
-                self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
-        except Exception:
-            _LOGGER.warning("turn_on: failed")
+        source = None  # XXX: implement that it uses the latest used source
+        response = self._speaker.turn_on(source)
+        if response:
+            self._state = States.TurningOn
+            self._update_timeout = time.time() + BOOTING_ON_OFF_TIMEOUT
 
+    @try_this()
     def volume_up(self):
         """Volume up the media player."""
-        self._ensure_online()
-        try:
-            self._speaker.increase_volume()
-            self._volume = self._speaker.volume
-            self._update_timeout = time.time() + UPDATE_TIMEOUT
-        except Exception:
-            _LOGGER.warning("increase_volume: failed")
+        self._volume = self._speaker.increase_volume()
+        self._update_timeout = time.time() + UPDATE_TIMEOUT
 
+    @try_this()
     def volume_down(self):
         """Volume down the media player."""
-        self._ensure_online()
-        try:
-            self._speaker.decrease_volume()
-            self._volume = self._speaker.volume
-            self._update_timeout = time.time() + UPDATE_TIMEOUT
-        except Exception:
-            _LOGGER.warning("volume_down: failed")
+        self._volume = self._speaker.decrease_volume()
+        self._update_timeout = time.time() + UPDATE_TIMEOUT
 
+    @try_this()
     def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        self._ensure_online()
-        try:
-            self._speaker.volume = volume
-            self._volume = volume
-            self._update_timeout = time.time() + UPDATE_TIMEOUT
-        except Exception:
-            _LOGGER.warning("set_volume_level: failed")
+        self._speaker.volume = volume
+        self._volume = volume
+        self._update_timeout = time.time() + UPDATE_TIMEOUT
 
+    @try_this()
     def select_source(self, source):
         """Select input source."""
-        self._ensure_online()
-        try:
-            input_source = InputSource.from_str(source)
-            if input_source:
-                self._source = str(source)
-                self._speaker.source = input_source
-                self._update_timeout = time.time() + UPDATE_TIMEOUT
-            else:
-                _LOGGER.warning(f"select_source: unknown input {source}")
-        except Exception:
-            _LOGGER.warning("select_source: failed")
+        if source in self.source_list:
+            self._source = str(source)
+            self._speaker.source = input_source
+            self._update_timeout = time.time() + UPDATE_TIMEOUT
+        else:
+            _LOGGER.warning(f"select_source: unknown input {source}")
 
     @property
     def source(self):
