@@ -1,18 +1,16 @@
-# Python interface to control KEF speakers
-Supported: KEF LS50 Wireless (Requires [firmware](http://international.kef.com/product-support) June 2018 or later)
-
-Untested: KEF LSX
+# Home Assistant component for KEF speakers
+Supported: *KEF LS50 Wireless (tested with latest firmware at 08-11-2019)*
+Untested: *KEF LSX*
 
 ## Supported features
 - Get and set volume
 - Mute and unmute
 - Get and set source input
-- Automatically connects and disconnects when speakers goes online/offline
 - Turn speaker on and off
-
+- Automatically connects and disconnects when speakers goes online/offline
 
 ## Discussion
-See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/).
+See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/) where the creation of the KEF speakers is discussed.
 
 ## Use in Home Assistant
 1. Create folder in your home assistant `config` folder:
@@ -20,7 +18,7 @@ See this [Home Assistant discussion thread](https://community.home-assistant.io/
 mkdir /path/to/config/custom_components/
 cp -r custom_components/kef /path/to/config/custom_components/
 ```
-2. Add component to Home Assistant by adding to `configuration.yaml`:
+2. Add the component to Home Assistant by adding the following to `configuration.yaml`:
 ```bash
 media_player:
    - platform: kefwireless
