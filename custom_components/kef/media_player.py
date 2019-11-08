@@ -203,8 +203,7 @@ class KefMediaPlayer(MediaPlayerDevice):
 
     @property
     def supported_features(self):
-        """Flag media player features that are supported.
-        """
+        """Flag media player features that are supported."""
         return SUPPORT_KEF
 
     @property
