@@ -99,6 +99,7 @@ class States(Enum):
     TurningOn = 3
     TurningOff = 4
 
+
 def try_and_delay_update(delay):
     def deco(f):
         @functools.wraps(f)
@@ -259,6 +260,6 @@ class KefMediaPlayer(MediaPlayerDevice):
         """Select input source."""
         if source in self.source_list:
             self._source = str(source)
-            self._speaker.set_source(input_source)
+            self._speaker.set_source(source)
         else:
             raise ValueError(f"Unknown input source: {source}.")
