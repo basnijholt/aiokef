@@ -230,7 +230,6 @@ class KefSpeaker:
         """Decrease volume by `self.volume_step`."""
         return self._change_volume(-self.volume_step)
 
-    @property
     def is_muted(self):
         return self._get_volume(scale=False) > 128
 
