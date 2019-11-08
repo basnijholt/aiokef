@@ -48,10 +48,8 @@ SUPPORT_KEF = (
     | SUPPORT_VOLUME_MUTE
     | SUPPORT_SELECT_SOURCE
     | SUPPORT_TURN_OFF
+    | SUPPORT_TURN_ON
 )
-
-CONF_TURN_ON_SERVICE = "turn_on_service"
-CONF_TURN_ON_DATA = "turn_on_data"
 
 # yaml configuration
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -59,8 +57,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_HOST): cv.string,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(CONF_TURN_ON_SERVICE): cv.service,
-        vol.Optional(CONF_TURN_ON_DATA): cv.string,
     }
 )
 
@@ -71,8 +67,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
-    turn_on_service = config.get(CONF_TURN_ON_SERVICE)
-    turn_on_data = config.get(CONF_TURN_ON_DATA)
 
     _LOGGER.debug(
         f"Setting up {DATA_KEFWIRELESS} with host: {host}, port: {port},"
@@ -81,7 +75,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     # Add devices
     media_player = KefMediaPlayer(
-        name, host, port, turn_on_service, turn_on_data, KEF_LS50_SOURCE_DICT, hass
+        name, host, port, KEF_LS50_SOURCE_DICT, hass
     )
     add_entities([media_player])
 
@@ -97,15 +91,13 @@ class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
     def __init__(
-        self, name, host, port, turn_on_service, turn_on_data, source_dict, hass
+        self, name, host, port, source_dict, hass
     ):
         """Initialize the media player."""
         self._hass = hass
         self._name = name
         self._source_dict = source_dict
-        self._speaker = KefSpeaker(host, port, ioloop=hass.loop)
-        self._turn_on_service = turn_on_service
-        self._turn_on_data = turn_on_data
+        self._speaker = KefSpeaker(host, port, ioloop=self._hass.loop)
 
         # set internal state to None
         self._state = None
@@ -132,9 +124,6 @@ class KefMediaPlayer(MediaPlayerDevice):
                 time_to_wait = 10
             if self._state is States.Online:
                 return
-
-    def _is_turning_on_supported(self):
-        return self._turn_on_service and self._turn_on_data
 
     @property
     def name(self):
@@ -195,12 +184,8 @@ class KefMediaPlayer(MediaPlayerDevice):
     @property
     def supported_features(self):
         """Flag media player features that are supported.
-        Return feature set based on the turn_on_service configuration
         """
-        MAYBE_SUPPORT_TURN_ON = (
-            SUPPORT_TURN_ON if self._is_turning_on_supported() else 0
-        )
-        return SUPPORT_KEF | MAYBE_SUPPORT_TURN_ON
+        return SUPPORT_KEF
 
     def turn_off(self):
         """Turn the media player off."""
@@ -213,27 +198,14 @@ class KefMediaPlayer(MediaPlayerDevice):
             _LOGGER.warning("turn_off: failed")
 
     def turn_on(self):
-        """Turn the media player on via service call."""
-
-        # even if the SUPPORT_TURN_ON is not set as supported feature, HA still
-        # offers to call turn_on, thus we have to exit here to prevent errors
-        if not self._is_turning_on_supported() or self._state in [
-            States.Online,
-            States.TurningOn,
-            None,
-        ]:
-            return
-
-        # note that turn_on_service has the correct syntax as we validated the input
-        service_domain, service_name, *_ = self._turn_on_service.split(".")
-
-        # this might need some more work. The self._hass.services.call expects
-        # a python dict this input is specified as a string. I was not able to
-        # use config validation to make sure it is a dict
-        service_data = json.loads(self._turn_on_data)
-        self._hass.services.call(service_domain, service_name, service_data, False)
-        self._state = States.TurningOn
-        self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
+        """Turn the media player on."""
+        try:
+            response = self._speaker.turn_on()
+            if response:
+                self._state = States.TurningOn
+                self._update_timeout = time.time() + CHANGE_STATE_TIMEOUT
+        except Exception:
+            _LOGGER.warning("turn_on: failed")
 
     def volume_up(self):
         """Volume up the media player."""
