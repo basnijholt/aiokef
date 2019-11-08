@@ -10,7 +10,7 @@ from enum import Enum
 from time import sleep, time
 
 _LOGGER = logging.getLogger(__name__)
-_VOL_STEP = 0.05  # 5 percent
+_VOL_STEP = 0.05  # 5% steps
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
