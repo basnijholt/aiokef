@@ -166,7 +166,9 @@ class KefMediaPlayer(MediaPlayerDevice):
         """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
         if self._state_is_changing():
+            # The speaker is turning on or off.
             if updated_needed:
+                # Invalidate the state if it's time to update.
                 self._state = None
             updated_needed = True
 
@@ -178,6 +180,7 @@ class KefMediaPlayer(MediaPlayerDevice):
                     self._volume = self._speaker.get_volume()
                 self._state = States.Online
             elif not self._state_is_changing():
+                # Speaker is not online and not turning on.
                 self._muted = None
                 self._source = None
                 self._volume = None
