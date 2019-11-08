@@ -42,7 +42,7 @@ WAIT_FOR_ONLINE_STATE = 10.0
 KEF_LS50_SOURCE_DICT = {str(i + 1): str(s) for i, s in enumerate(InputSource)}
 
 # supported features
-SUPPORT_KEFWIRELESS = (
+SUPPORT_KEF = (
     SUPPORT_VOLUME_SET
     | SUPPORT_VOLUME_STEP
     | SUPPORT_VOLUME_MUTE
@@ -197,9 +197,10 @@ class KefMediaPlayer(MediaPlayerDevice):
         """Flag media player features that are supported.
         Return feature set based on the turn_on_service configuration
         """
-        return SUPPORT_KEFWIRELESS | (
+        MAYBE_SUPPORT_TURN_ON = (
             SUPPORT_TURN_ON if self._is_turning_on_supported() else 0
         )
+        return SUPPORT_KEF | MAYBE_SUPPORT_TURN_ON
 
     def turn_off(self):
         """Turn the media player off."""
