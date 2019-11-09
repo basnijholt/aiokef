@@ -139,7 +139,7 @@ class KefSpeaker:
             retries += 1
 
     async def _disconnect_if_passive(self):
-        """Disconnect if connection is not used for _KEEP_ALIVE seconds."""
+        """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
         while True:
             time_is_up = time.time() - self._last_timestamp > _KEEP_ALIVE
             if self._connected and time_is_up:
@@ -199,13 +199,14 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def _set_volume(self, volume: int):
+        # Write volume level (0..100) on index 3,
+        # add 128 to current level to mute.
         _LOGGER.debug(f"_set_volume(volume={volume}")
-        # write vol level in 4th place, add 128 to current level to mute
         msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
         if self._send_command(msg) != _RESPONSE_OK:
             raise ConnectionError("Setting the volume failed.")
 
-    def get_volume(self):
+    def get_volume(self) -> float:
         """Volume level of the media player (0..1). None if muted."""
         volume = self._get_volume(scale=True)
         return volume if not self.is_muted() else None
@@ -230,7 +231,7 @@ class KefSpeaker:
         """Decrease volume by `self.volume_step`."""
         return self._change_volume(-self.volume_step)
 
-    def is_muted(self):
+    def is_muted(self) -> bool:
         return self._get_volume(scale=False) > 128
 
     def mute(self):
@@ -242,7 +243,7 @@ class KefSpeaker:
         self._set_volume(int(volume) % 128)
 
     @property
-    def online(self):
+    def online(self) -> bool:
         # This is a property because `_refresh_connection` is very fast, ~5 ms.
         with contextlib.suppress(Exception):
             self._refresh_connection()
