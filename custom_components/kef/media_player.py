@@ -19,7 +19,7 @@ from homeassistant.components.media_player import (
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.kef.pykef import InputSource, KefSpeaker
+from custom_components.kef.kef_api import InputSource, KefSpeaker
 
 _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
@@ -114,6 +114,7 @@ def try_and_delay_update(delay):
                 _LOGGER.warning(f"{f.__name__} failed with {e}")
 
         return wrapper
+
     return deco
 
 
