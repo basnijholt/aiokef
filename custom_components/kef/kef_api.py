@@ -13,7 +13,8 @@ _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
 _VOLUME_SCALE = 100.0
-_MAX_RETRIES = 10
+_MAX_CONNECTION_RETRIES = 10
+_MAX_SEND_COMMAND_TRIES = 5
 
 
 INPUT_SOURCES = {
@@ -119,7 +120,7 @@ class KefSpeaker:
         self._connected = False
         wait = 0.1
         retries = 0
-        while retries < _MAX_RETRIES:
+        while retries < _MAX_CONNECTION_RETRIES:
             self._last_timestamp = time.time()
             try:
                 self._socket.connect((self.host, self.port))
@@ -167,7 +168,7 @@ class KefSpeaker:
         self._last_received = data
         return data[len(data) - 2] if data else None
 
-    @retry(ConnectionError, tries=5)
+    @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def get_source(self):
         response = self._send_command(COMMANDS["get_source"])
         source = INPUT_SOURCES.get(response, {}).get("response_ok")
@@ -175,21 +176,21 @@ class KefSpeaker:
             raise ConnectionError("Getting source failed, got response {response}.")
         return source
 
-    @retry(ConnectionError, tries=5)
+    @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def set_source(self, source: str):
         assert source in INPUT_SOURCES
         response = self._send_command(INPUT_SOURCES[source]["msg"])
         if response != _RESPONSE_OK:
             raise ConnectionError("Setting source failed, got response {response}.")
 
-    @retry(ConnectionError, tries=5)
+    @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def _get_volume(self, scale=True):
         volume = self._send_command(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
         return volume / _VOLUME_SCALE if scale else volume
 
-    @retry(ConnectionError, tries=5)
+    @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def _set_volume(self, volume: int):
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
@@ -250,7 +251,7 @@ class KefSpeaker:
             source = "Wifi"
         self.set_source(source)
 
-    @retry(ConnectionError, tries=5)
+    @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def turn_off(self):
         response = self._send_command(COMMANDS["turn_off"])
         if response != _RESPONSE_OK:
