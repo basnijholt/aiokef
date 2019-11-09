@@ -26,7 +26,7 @@ INPUT_SOURCES = {
     "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response=28),
 }
 
-INPUT_SOURCES_RESPONSE = {v['response']: k for k, v in INPUT_SOURCES.items()}
+INPUT_SOURCES_RESPONSE = {v["response"]: k for k, v in INPUT_SOURCES.items()}
 
 COMMANDS = {
     "turn_off": bytes([0x53, 0x30, 0x81, 0x9B, 0x0B]),
