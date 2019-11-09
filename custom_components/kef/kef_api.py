@@ -15,7 +15,7 @@ _KEEP_ALIVE = 1.0  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_SEND_COMMAND_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
-# ... the connection is refreshed this many times.
+# ... the connection is maximally refreshed this many times.
 
 
 INPUT_SOURCES = {
