@@ -1,4 +1,5 @@
-# Home Assistant component for KEF speakers
+# Home Assistant `custom_component` for KEF speakers
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 Supported: *KEF LS50 Wireless (tested with latest firmware at 08-11-2019)*
 Untested: *KEF LSX*
 
@@ -8,9 +9,6 @@ Untested: *KEF LSX*
 - Get and set source input
 - Turn speaker on and off
 - Automatically connects and disconnects when speakers goes online/offline
-
-## Discussion
-See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/) where the creation of the KEF speakers is discussed.
 
 ## Use in Home Assistant
 1. Create folder in your home assistant `config` folder:
@@ -27,6 +25,9 @@ media_player:
      maximum_volume: 0.5  # optional, to avoid extremely loud volumes
      volume_step: 0.05  # optional
 ```
+
+## Discussion
+See this [Home Assistant discussion thread](https://community.home-assistant.io/t/kef-ls50-wireless/) where the creation of the KEF speakers is discussed.
 
 ## License
 MIT License
