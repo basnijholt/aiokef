@@ -190,8 +190,7 @@ class KefSpeaker:
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
         _LOGGER.debug(f"_set_volume(volume={volume}")
-        msg = COMMANDS["set_volume"](volume)
-        response = self._send_command(msg)
+        response = self._send_command(COMMANDS["set_volume"](volume))
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting the volume failed, got response {response}."
