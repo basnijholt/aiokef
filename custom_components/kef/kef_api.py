@@ -167,7 +167,7 @@ class KefSpeaker:
     def set_source(self, source: str):
         _LOGGER.debug(f"set_source({source})")
         assert source in INPUT_SOURCES
-        response = self._send_command(source)
+        response = self._send_command(INPUT_SOURCES[source]["msg"])
         if response != _RESPONSE_OK:
             raise ConnectionError("Setting source failed, got response {response}.")
 
