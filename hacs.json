@@ -1,4 +1,5 @@
 {
   "name": "KEF",
-  "render_readme": true
+  "render_readme": true,
+  "domains": ["media_player"]
 }
