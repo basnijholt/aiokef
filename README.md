@@ -14,14 +14,14 @@ Untested: *KEF LSX*
 ## Use in Home Assistant
 
 ### Install
-*Installation with [HACS](https://hacs.xyz/)*
+(Recommended) *Installation with [HACS](https://hacs.xyz/)*.
 Go to the [HACS](https://hacs.xyz/) store and install KEF.
 
-*Manual installation*
-Create folder in your home assistant `config` folder:
+(Alternative) *Manual installation*.
+Download the repo. Create folder in your home assistant `config` folder:
 ```bash
 mkdir -p /path/to/config/custom_components/
-cp -r custom_components/kef /path/to/config/custom_components/
+cp -r media_player.kef/custom_components/kef /path/to/config/custom_components/
 ```
 
 ### Configure
