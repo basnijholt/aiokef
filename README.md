@@ -12,12 +12,20 @@ Untested: *KEF LSX*
 - Automatically connects and disconnects when speakers goes online/offline
 
 ## Use in Home Assistant
-1. Create folder in your home assistant `config` folder:
+
+### Install
+*Installation with [HACS](https://hacs.xyz/)*
+Go to the [HACS](https://hacs.xyz/) store and install KEF.
+
+*Manual installation*
+Create folder in your home assistant `config` folder:
 ```bash
-mkdir /path/to/config/custom_components/
+mkdir -p /path/to/config/custom_components/
 cp -r custom_components/kef /path/to/config/custom_components/
 ```
-2. Add the component to Home Assistant by adding the following to `configuration.yaml`:
+
+### Configure
+Add the component to Home Assistant by adding the following to `configuration.yaml`:
 ```bash
 media_player:
    - platform: kef
