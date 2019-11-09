@@ -141,9 +141,9 @@ class KefSpeaker:
                 raise ConnectionRefusedError("Speaker is offline") from e
             else:
                 self._connected = True
+                _LOGGER.debug("Connected")
                 self._online = True
                 _LOGGER.debug("Online")
-                _LOGGER.debug("Connected")
                 return
             retries += 1
 
