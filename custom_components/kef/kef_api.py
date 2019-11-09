@@ -118,7 +118,7 @@ class KefSpeaker:
 
         self._socket = setup_connection()
         self._connected = False
-        wait = 0.1
+        wait = 0.05
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
             self._last_timestamp = time.time()
@@ -126,7 +126,7 @@ class KefSpeaker:
                 self._socket.connect((self.host, self.port))
             except ConnectionRefusedError:
                 self._socket = setup_connection()
-                wait += 0.1
+                wait += 0.05
                 time.sleep(wait)
             except BlockingIOError:  # Connection incomming
                 retries = 0
