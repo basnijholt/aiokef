@@ -36,6 +36,8 @@ BOOTING_ON_OFF_TIMEOUT = 20.0  # Timeout when turning speaker on or off.
 # When changing volume or source, wait for the speaker until it is online for:
 WAIT_FOR_ONLINE_STATE = 10.0
 
+SCAN_INTERVAL = 15  # Used in HA.
+
 KEF_LS50_SOURCES = sorted(INPUT_SOURCES.keys())
 
 SUPPORT_KEF = (
