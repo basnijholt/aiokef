@@ -19,12 +19,14 @@ _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 
 
 INPUT_SOURCES = {
-    "Wifi": dict(msg=bytes([0x53, 0x30, 0x81, 0x12, 0x82]), response_ok=18),
-    "Bluetooth": dict(msg=bytes([0x53, 0x30, 0x81, 0x19, 0xAD]), response_ok=31),
-    "Aux": dict(msg=bytes([0x53, 0x30, 0x81, 0x1A, 0x9B]), response_ok=26),
-    "Opt": dict(msg=bytes([0x53, 0x30, 0x81, 0x1B, 0x00]), response_ok=27),
-    "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response_ok=28),
+    "Wifi": dict(msg=bytes([0x53, 0x30, 0x81, 0x12, 0x82]), response=18),
+    "Bluetooth": dict(msg=bytes([0x53, 0x30, 0x81, 0x19, 0xAD]), response=31),
+    "Aux": dict(msg=bytes([0x53, 0x30, 0x81, 0x1A, 0x9B]), response=26),
+    "Opt": dict(msg=bytes([0x53, 0x30, 0x81, 0x1B, 0x00]), response=27),
+    "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response=28),
 }
+
+INPUT_SOURCES_RESPONSE = {v['response']: k for k, v in INPUT_SOURCES.items()}
 
 COMMANDS = {
     "turn_off": bytes([0x53, 0x30, 0x81, 0x9B, 0x0B]),
@@ -172,7 +174,7 @@ class KefSpeaker:
     @retry(ConnectionError, tries=_MAX_SEND_COMMAND_TRIES)
     def get_source(self):
         response = self._send_command(COMMANDS["get_source"])
-        source = INPUT_SOURCES.get(response, {}).get("response_ok")
+        source = INPUT_SOURCES_RESPONSE.get(response)
         if source is None:
             raise ConnectionError("Getting source failed, got response {response}.")
         return source
