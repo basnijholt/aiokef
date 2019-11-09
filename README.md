@@ -33,7 +33,7 @@ See this [Home Assistant discussion thread](https://community.home-assistant.io/
 ## License
 MIT License
 
-## Authors
+## Contributions
 - Bas Nijholt
 - Robin Grönberg ([@Gronis](https://github.com/Gronis/pykef))
 - Bastian Beggel ([@bastianbeggel](https://github.com/bastianbeggel/hasskef))
