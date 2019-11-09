@@ -7,32 +7,22 @@ import logging
 import select
 import socket
 import time
-from enum import Enum
 
 _LOGGER = logging.getLogger(__name__)
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
-_SCALE = 100.0
+_VOLUME_SCALE = 100.0
 _MAX_RETRIES = 10
 
 
-class InputSource(Enum):
-    Wifi = bytes([0x53, 0x30, 0x81, 0x12, 0x82])
-    Bluetooth = bytes([0x53, 0x30, 0x81, 0x19, 0xAD])
-    Aux = bytes([0x53, 0x30, 0x81, 0x1A, 0x9B])
-    Opt = bytes([0x53, 0x30, 0x81, 0x1B, 0x00])
-    Usb = bytes([0x53, 0x30, 0x81, 0x1C, 0xF7])
-
-    def __str__(self):
-        return {s: s.name for s in InputSource}[self]
-
-    @classmethod
-    def from_str(cls, name):
-        try:
-            return next(s for s in InputSource if s.name == name)
-        except StopIteration:
-            return None
+INPUT_SOURCES = {
+    "Wifi": dict(msg=bytes([0x53, 0x30, 0x81, 0x12, 0x82]), response_ok=18),
+    "Bluetooth": dict(msg=bytes([0x53, 0x30, 0x81, 0x19, 0xAD]), response_ok=31),
+    "Aux": dict(msg=bytes([0x53, 0x30, 0x81, 0x1A, 0x9B]), response_ok=26),
+    "Opt": dict(msg=bytes([0x53, 0x30, 0x81, 0x1B, 0x00]), response_ok=27),
+    "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response_ok=28),
+}
 
 
 def retry(ExceptionToCheck, tries=4, delay=0.1, backoff=2):
@@ -83,6 +73,7 @@ class KefSpeaker:
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
         self.volume_step = volume_step
         self.maximum_volume = maximum_volume
+        self._last_received = None
 
     def _refresh_connection(self):
         """Connect if not connected.
@@ -159,6 +150,7 @@ class KefSpeaker:
             self._socket.setblocking(1)
         else:
             raise OSError("_send_command failed")
+        self._last_received = data
         return data[len(data) - 2] if data else None
 
     @retry(ConnectionError, tries=5)
@@ -166,27 +158,18 @@ class KefSpeaker:
         _LOGGER.debug("_get_source()")
         msg = bytes([0x47, 0x30, 0x80, 0xD9])
         response = self._send_command(msg)
-        table = {
-            18: InputSource.Wifi,
-            25: InputSource.Bluetooth,
-            26: InputSource.Aux,
-            27: InputSource.Opt,
-            28: InputSource.Usb,
-            31: InputSource.Bluetooth,
-        }
-        source = table.get(response)
+        source = INPUT_SOURCES.get(response, {}).get(response_ok)
         if source is None:
-            raise ConnectionError("Getting source failed.")
+            raise ConnectionError("Getting source failed, got response {response}.")
         return source
 
     @retry(ConnectionError, tries=5)
-    def set_source(self, source):
+    def set_source(self, source: str):
         _LOGGER.debug(f"set_source({source})")
-        if isinstance(source, str):
-            source = InputSource.from_str(source)
-        assert isinstance(source, InputSource)
-        if self._send_command(source.value) != _RESPONSE_OK:
-            raise ConnectionError("Setting source failed.")
+        assert source in INPUT_SOURCES
+        response = self._send_command(source)
+        if response != _RESPONSE_OK:
+            raise ConnectionError("Setting source failed, got response {response}.")
 
     @retry(ConnectionError, tries=5)
     def _get_volume(self, scale=True):
@@ -195,7 +178,7 @@ class KefSpeaker:
         volume = self._send_command(msg)
         if volume is None:
             raise ConnectionError("Getting volume failed.")
-        return volume / _SCALE if scale else volume
+        return volume / _VOLUME_SCALE if scale else volume
 
     @retry(ConnectionError, tries=5)
     def _set_volume(self, volume: int):
@@ -203,8 +186,9 @@ class KefSpeaker:
         # add 128 to current level to mute.
         _LOGGER.debug(f"_set_volume(volume={volume}")
         msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
-        if self._send_command(msg) != _RESPONSE_OK:
-            raise ConnectionError("Setting the volume failed.")
+        response = self._send_command(msg)
+        if response != _RESPONSE_OK:
+            raise ConnectionError(f"Setting the volume failed, got response {response}.")
 
     def get_volume(self) -> float:
         """Volume level of the media player (0..1). None if muted."""
@@ -212,7 +196,7 @@ class KefSpeaker:
         return volume if not self.is_muted() else None
 
     def set_volume(self, value: float):
-        volume = int(max(0.0, min(self.maximum_volume, value)) * _SCALE)
+        volume = int(max(0.0, min(self.maximum_volume, value)) * _VOLUME_SCALE)
         self._set_volume(volume)
 
     def _change_volume(self, step: float):
@@ -250,15 +234,16 @@ class KefSpeaker:
         return self._online
 
     def turn_on(self, source=None):
-        """The speaker can be turned on by selecting an InputSource."""
+        """The speaker can be turned on by selecting an INPUT_SOURCE."""
         # XXX: it might be possible to turn on the speaker with the last
         # used source selected.
         if source is None:
-            source = InputSource.Wifi
+            source = "Wifi"
         self.set_source(source)
 
     @retry(ConnectionError, tries=5)
     def turn_off(self):
         msg = bytes([0x53, 0x30, 0x81, 0x9B, 0x0B])
-        if self._send_command(msg) != _RESPONSE_OK:
-            raise ConnectionError("Turning off failed.")
+        response = self._send_command(msg)
+        if response != _RESPONSE_OK:
+            raise ConnectionError("Turning off failed, got response {response}.")

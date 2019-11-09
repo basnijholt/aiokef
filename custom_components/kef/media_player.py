@@ -19,7 +19,7 @@ from homeassistant.components.media_player import (
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.kef.kef_api import InputSource, KefSpeaker
+from custom_components.kef.kef_api import INPUT_SOURCES, KefSpeaker
 
 _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ BOOTING_ON_OFF_TIMEOUT = 20.0  # Timeout when turning speaker on or off.
 # When changing volume or source, wait for the speaker until it is online for:
 WAIT_FOR_ONLINE_STATE = 10.0
 
-KEF_LS50_SOURCE_DICT = {str(i + 1): str(s) for i, s in enumerate(InputSource)}
+KEF_LS50_SOURCES = sorted(INPUT_SOURCES.keys())
 
 SUPPORT_KEF = (
     SUPPORT_VOLUME_SET
@@ -73,7 +73,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     _LOGGER.debug(
         f"Setting up {DATA_KEF} with host: {host}, port: {port},"
-        f" name: {name}, source_dict: {KEF_LS50_SOURCE_DICT}"
+        f" name: {name}, sources: {KEF_LS50_SOURCES}"
     )
 
     media_player = KefMediaPlayer(
@@ -82,7 +82,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         port,
         maximum_volume=maximum_volume,
         volume_step=volume_step,
-        source_dict=KEF_LS50_SOURCE_DICT,
+        sources=KEF_LS50_SOURCES,
         hass=hass,
     )
     unique_id = f"{host}:{port}"
@@ -122,12 +122,12 @@ class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
     def __init__(
-        self, name, host, port, maximum_volume, volume_step, source_dict, hass
+        self, name, host, port, maximum_volume, volume_step, sources, hass
     ):
         """Initialize the media player."""
         self._name = name
         self._hass = hass
-        self._source_dict = source_dict
+        self._sources = sources
         self._speaker = KefSpeaker(
             host, port, volume_step, maximum_volume, ioloop=self._hass.loop
         )
@@ -216,7 +216,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     @property
     def source_list(self):
         """List of available input sources."""
-        return sorted(list(self._source_dict.values()))
+        return self._sources
 
     @try_and_delay_update(delay=BOOTING_ON_OFF_TIMEOUT)
     def turn_off(self):
