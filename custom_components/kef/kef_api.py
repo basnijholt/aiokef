@@ -123,8 +123,6 @@ class KefSpeaker:
             self._last_timestamp = time.time()
             try:
                 self._socket.connect((self.host, self.port))
-                self._connected = True
-                self._online = True
             except ConnectionRefusedError:
                 self._socket = setup_connection()
                 wait += 0.1
@@ -138,6 +136,8 @@ class KefSpeaker:
                 _LOGGER.debug("Offline")
                 raise ConnectionRefusedError("Speaker is offline") from e
             else:
+                self._connected = True
+                self._online = True
                 _LOGGER.debug("Online")
                 _LOGGER.debug("Connected")
                 return
