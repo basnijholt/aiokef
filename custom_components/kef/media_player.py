@@ -121,9 +121,7 @@ def try_and_delay_update(delay):
 class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
-    def __init__(
-        self, name, host, port, maximum_volume, volume_step, sources, hass
-    ):
+    def __init__(self, name, host, port, maximum_volume, volume_step, sources, hass):
         """Initialize the media player."""
         self._name = name
         self._hass = hass

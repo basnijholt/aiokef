@@ -24,6 +24,13 @@ INPUT_SOURCES = {
     "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response_ok=28),
 }
 
+COMMANDS = {
+    "turn_off": bytes([0x53, 0x30, 0x81, 0x9B, 0x0B]),
+    "get_source": bytes([0x47, 0x30, 0x80, 0xD9]),
+    "get_volume": bytes([0x47, 0x25, 0x80, 0x6C]),
+    "set_volume": lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A]),
+}
+
 
 def retry(ExceptionToCheck, tries=4, delay=0.1, backoff=2):
     """Retry calling the decorated function using an exponential backoff.
@@ -156,9 +163,8 @@ class KefSpeaker:
     @retry(ConnectionError, tries=5)
     def get_source(self):
         _LOGGER.debug("_get_source()")
-        msg = bytes([0x47, 0x30, 0x80, 0xD9])
-        response = self._send_command(msg)
-        source = INPUT_SOURCES.get(response, {}).get(response_ok)
+        response = self._send_command(COMMANDS["get_source"])
+        source = INPUT_SOURCES.get(response, {}).get("response_ok")
         if source is None:
             raise ConnectionError("Getting source failed, got response {response}.")
         return source
@@ -174,8 +180,7 @@ class KefSpeaker:
     @retry(ConnectionError, tries=5)
     def _get_volume(self, scale=True):
         _LOGGER.debug(f"_get_volume(scale={scale})")
-        msg = bytes([0x47, 0x25, 0x80, 0x6C])
-        volume = self._send_command(msg)
+        volume = self._send_command(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
         return volume / _VOLUME_SCALE if scale else volume
@@ -185,10 +190,12 @@ class KefSpeaker:
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
         _LOGGER.debug(f"_set_volume(volume={volume}")
-        msg = bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
+        msg = COMMANDS["set_volume"](volume)
         response = self._send_command(msg)
         if response != _RESPONSE_OK:
-            raise ConnectionError(f"Setting the volume failed, got response {response}.")
+            raise ConnectionError(
+                f"Setting the volume failed, got response {response}."
+            )
 
     def get_volume(self) -> float:
         """Volume level of the media player (0..1). None if muted."""
@@ -243,7 +250,6 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def turn_off(self):
-        msg = bytes([0x53, 0x30, 0x81, 0x9B, 0x0B])
-        response = self._send_command(msg)
+        response = self._send_command(COMMANDS["turn_off"])
         if response != _RESPONSE_OK:
             raise ConnectionError("Turning off failed, got response {response}.")
