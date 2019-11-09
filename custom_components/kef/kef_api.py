@@ -45,11 +45,18 @@ def retry(ExceptionToCheck, tries=4, delay=0.1, backoff=2):
         Initial delay between tries in seconds.
     backoff : int
         Backoff multiplier e.g. value of 2 will double the delay each retry.
+
+    Returns
+    -------
+    deco_retry : callable
+        Decorated function that retries when called.
     """
 
     def deco_retry(f):
         @functools.wraps(f)
         def f_retry(*args, **kwargs):
+            msg = f"Calling self.{f.__name__} with args={args} and kwargs={kwargs}"
+            _LOGGER.debug(msg)
             mtries, mdelay = tries, delay
             while mtries > 1:
                 try:
@@ -162,7 +169,6 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def get_source(self):
-        _LOGGER.debug("_get_source()")
         response = self._send_command(COMMANDS["get_source"])
         source = INPUT_SOURCES.get(response, {}).get("response_ok")
         if source is None:
@@ -171,7 +177,6 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def set_source(self, source: str):
-        _LOGGER.debug(f"set_source({source})")
         assert source in INPUT_SOURCES
         response = self._send_command(INPUT_SOURCES[source]["msg"])
         if response != _RESPONSE_OK:
@@ -179,7 +184,6 @@ class KefSpeaker:
 
     @retry(ConnectionError, tries=5)
     def _get_volume(self, scale=True):
-        _LOGGER.debug(f"_get_volume(scale={scale})")
         volume = self._send_command(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
@@ -189,7 +193,6 @@ class KefSpeaker:
     def _set_volume(self, volume: int):
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
-        _LOGGER.debug(f"_set_volume(volume={volume}")
         response = self._send_command(COMMANDS["set_volume"](volume))
         if response != _RESPONSE_OK:
             raise ConnectionError(
