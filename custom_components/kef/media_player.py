@@ -99,6 +99,9 @@ class States(Enum):
     TurningOn = 3
     TurningOff = 4
 
+    def is_changing(self):
+        return self in (States.TurningOn, States.TurningOff)
+
 
 def try_and_delay_update(delay):
     def deco(f):
@@ -162,13 +165,10 @@ class KefMediaPlayer(MediaPlayerDevice):
         else:
             return None
 
-    def _state_is_changing(self):
-        return self._state in (States.TurningOn, States.TurningOff)
-
     def update(self):
         """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
-        if self._state_is_changing():
+        if self._state.is_changing():
             # The speaker is turning on or off.
             if updated_needed:
                 # Invalidate the state if it's time to update.
@@ -182,7 +182,7 @@ class KefMediaPlayer(MediaPlayerDevice):
                     self._source = str(self._speaker.get_source())
                     self._volume = self._speaker.get_volume()
                 self._state = States.Online
-            elif not self._state_is_changing():
+            elif not self._state.is_changing():
                 # Speaker is not online and not turning on.
                 self._muted = None
                 self._source = None
