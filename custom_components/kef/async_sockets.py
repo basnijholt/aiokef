@@ -13,7 +13,7 @@ _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
 _VOLUME_SCALE = 100.0
-_MAX_SEND_COMMAND_TRIES = 5
+_MAX_SEND_COMMAND_TRIES = 5  # XXX: not used ATM
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
 
@@ -36,7 +36,7 @@ COMMANDS = {
 }
 
 
-class AsyncKefSpeaker:
+class _AsyncCommunicator:
     def __init__(self, host, port, *, ioloop=None):
         self.host = host
         self.port = port
@@ -58,7 +58,7 @@ class AsyncKefSpeaker:
             return
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
-            print("Opening connection")
+            _LOGGER.debug("Opening connection")
             try:
                 task = asyncio.open_connection(
                     self.host, self.port, family=socket.AF_INET
@@ -67,7 +67,7 @@ class AsyncKefSpeaker:
                     task, timeout=_TIMEOUT
                 )
             except ConnectionRefusedError:
-                print("Opening connection failed")
+                _LOGGER.debug("Opening connection failed")
                 await asyncio.sleep(1)
             except BlockingIOError:  # Connection incomming
                 # XXX: I have never seen this.
@@ -90,15 +90,15 @@ class AsyncKefSpeaker:
 
         read_task = self._reader.read(100)
         try:
-            data = await asyncio.wait_for(read_task, timeout=1)
+            data = await asyncio.wait_for(read_task, timeout=_TIMEOUT)
             self._last_time_stamp = time.time()
             return data[-2]
         except asyncio.TimeoutError:
-            print("Timeout")
+            _LOGGER.debug("Timeout")
 
-    async def disconnect(self):
+    async def _disconnect(self):
         if self.is_connected:
-            print("Disconnecting")
+            _LOGGER.debug("Disconnecting")
             self._writer.close()
             await self._writer.wait_closed()
             self._reader, self._writer = (None, None)
@@ -108,7 +108,7 @@ class AsyncKefSpeaker:
         while True:
             time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
             if self.is_connected and time_is_up:
-                await self.disconnect()
+                await self._disconnect()
             await asyncio.sleep(0.05)
 
     async def _run(self):
@@ -117,18 +117,32 @@ class AsyncKefSpeaker:
             try:
                 await self.open_connection()
             except ConnectionRefusedError as e:
-                print(f"Error in main loop: {e}")
+                _LOGGER.debug(f"Error in main loop: {e}")
                 continue
             reply = await self._send_message(msg)
             await self._replies.put(reply)
-            print(f"Received: {reply}")
+            _LOGGER.debug(f"Received: {reply}")
 
     async def send_message(self, msg):
         await self._queue.put(msg)
         return await self._replies.get()
 
+
+class AsyncKefSpeaker:
+    def __init__(
+        self, host, port, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
+    ):
+        self.host = host
+        self.port = port
+        self.volume_step = volume_step
+        self.maximum_volume = maximum_volume
+        self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
+
+    def blocking_method(self, method: str, args=()):
+        return self._comm._ioloop.run_until_complete(getattr(self, method)(*args))
+
     async def get_source(self):
-        response = await self.send_message(COMMANDS["get_source"])
+        response = await self._comm.send_message(COMMANDS["get_source"])
         source = INPUT_SOURCES_RESPONSE.get(response)
         if source is None:
             raise ConnectionError("Getting source failed, got response {response}.")
@@ -136,12 +150,12 @@ class AsyncKefSpeaker:
 
     async def set_source(self, source: str):
         assert source in INPUT_SOURCES
-        response = await self.send_message(INPUT_SOURCES[source]["msg"])
+        response = await self._comm.send_message(INPUT_SOURCES[source]["msg"])
         if response != _RESPONSE_OK:
             raise ConnectionError("Setting source failed, got response {response}.")
 
     async def _get_volume(self, scale=True):
-        volume = await self.send_message(COMMANDS["get_volume"])
+        volume = await self._comm.send_message(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
         return volume / _VOLUME_SCALE if scale else volume
@@ -149,21 +163,22 @@ class AsyncKefSpeaker:
     async def _set_volume(self, volume: int):
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
-        response = await self.send_message(COMMANDS["set_volume"](volume))
+        response = await self._comm.send_message(COMMANDS["set_volume"](volume))
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting the volume failed, got response {response}."
             )
 
     async def turn_off(self):
-        response = await self.send_message(COMMANDS["turn_off"])
+        response = await self._comm.send_message(COMMANDS["turn_off"])
         if response != _RESPONSE_OK:
             raise ConnectionError("Turning off failed, got response {response}.")
 
     async def get_volume(self) -> float:
         """Volume level of the media player (0..1). None if muted."""
         volume = await self._get_volume(scale=True)
-        return volume if not (await self.is_muted()) else None
+        is_muted = await self.is_muted()
+        return volume if not is_muted else None
 
     async def set_volume(self, value: float):
         volume = int(max(0.0, min(self.maximum_volume, value)) * _VOLUME_SCALE)
@@ -172,7 +187,8 @@ class AsyncKefSpeaker:
     async def _change_volume(self, step: float):
         """Change volume by `step`."""
         volume = await self.get_volume()
-        if not self.is_muted():
+        is_muted = await self.is_muted()
+        if not is_muted:
             new_volume = volume + step
             await self.set_volume(new_volume)
             return new_volume
@@ -200,7 +216,7 @@ class AsyncKefSpeaker:
     def is_online(self) -> bool:
         # This is a property because `_refresh_connection` is very fast, ~5 ms.
         with contextlib.suppress(Exception):
-            self._ioloop.run_until_complete(self.open_connection())
+            self.blocking_method("open_connection")
         return self._is_online
 
     async def turn_on(self, source=None):
@@ -211,16 +227,7 @@ class AsyncKefSpeaker:
             source = "Wifi"
         await self.set_source(source)
 
-    def blocking_method(self, method: str, args=()):
-        return self._ioloop.run_until_complete(getattr(self, method)(*args))
-
 
 host = "192.168.31.196"
 port = 50001
 s = AsyncKefSpeaker(host, port)
-
-
-vol = lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
-
-t = s.blocking_method("send_message", (vol(40),))
-print(t)
