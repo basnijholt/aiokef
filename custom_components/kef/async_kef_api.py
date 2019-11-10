@@ -268,7 +268,7 @@ class SyncKefSpeaker:
         else:
             return method
 
-
-host = "192.168.31.196"
-port = 50001
-s = AsyncKefSpeaker(host, port)
+if __name__ == "__main__":
+    host = "192.168.31.196"
+    port = 50001
+    s = AsyncKefSpeaker(host, port)
