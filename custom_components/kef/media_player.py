@@ -145,15 +145,11 @@ class KefMediaPlayer(MediaPlayerDevice):
 
     async def _ensure_online(self):
         """Use this function to wait for online state."""
-        time_to_wait = WAIT_FOR_ONLINE_STATE
-        time_to_sleep = 0.05
-        while time_to_wait > 0:
-            if self._state is States.Online:
-                return
-            time_to_wait -= time_to_sleep
-            await asyncio.sleep(time_to_sleep)
+        time_end = time.time() + WAIT_FOR_ONLINE_STATE
+        while self._state is not States.Online and time.time() > time_end:
+            await asyncio.sleep(0.1)
             if self._state is States.TurningOn:
-                time_to_wait = 10
+                time_end = time.time() + WAIT_FOR_ONLINE_STATE
 
     @property
     def name(self):
