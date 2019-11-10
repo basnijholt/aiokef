@@ -96,34 +96,6 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         async_add_entities([media_player], True)
 
 
-class States(Enum):
-    Online = 1
-    Offline = 2
-    TurningOn = 3
-    TurningOff = 4
-
-    def is_changing(self):
-        return self in (States.TurningOn, States.TurningOff)
-
-
-def try_and_delay_update(delay):
-    def deco(f):
-        @functools.wraps(f)
-        async def wrapper(*args, **kwargs):
-            try:
-                self = args[0]
-                await self._ensure_online()
-                result = await f(*args, **kwargs)
-                self._update_timeout = time.time() + delay
-                return result
-            except Exception as e:
-                _LOGGER.warning(f"{f.__name__} failed with {e}")
-
-        return wrapper
-
-    return deco
-
-
 class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
@@ -143,14 +115,6 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._volume = None
         self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
 
-    async def _ensure_online(self):
-        """Use this function to wait for online state."""
-        time_end = time.time() + WAIT_FOR_ONLINE_STATE
-        while self._state is not States.Online and time.time() > time_end:
-            await asyncio.sleep(0.1)
-            if self._state is States.TurningOn:
-                time_end = time.time() + WAIT_FOR_ONLINE_STATE
-
     @property
     def name(self):
         """Return the name of the device."""
@@ -159,35 +123,23 @@ class KefMediaPlayer(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
-        if isinstance(self._state, States):
-            return STATE_ON if self._state is States.Online else STATE_OFF
-        else:
-            return None
+        return self._state
 
     async def async_update(self):
         """Update latest state."""
-        updated_needed = time.time() >= self._update_timeout
-        if self._state is not None and self._state.is_changing():
-            # The speaker is turning on or off.
-            if updated_needed:
-                # Invalidate the state if it's time to update.
-                self._state = None
-            updated_needed = True
-
         try:
             is_online = await self._speaker.is_online()
-            if is_online and self._state is not States.TurningOff:
-                if updated_needed:
-                    self._muted = await self._speaker.is_muted()
-                    self._source = await self._speaker.get_source()
-                    self._volume = await self._speaker.get_volume()
-                self._state = States.Online
-            elif not self._state.is_changing():
-                # Speaker is not online and not turning on.
+            if is_online:
+                self._muted = await self._speaker.is_muted()
+                self._source = await self._speaker.get_source()
+                self._volume = await self._speaker.get_volume()
+                is_on = await self._speaker.is_on()
+                self._state = STATE_ON if is_on else STATE_OFF
+            else:
                 self._muted = None
                 self._source = None
                 self._volume = None
-                self._state = States.Offline
+                self._state = STATE_OFF
         except Exception as e:
             _LOGGER.debug(f"Error in `update`: {e}")
 
@@ -216,38 +168,31 @@ class KefMediaPlayer(MediaPlayerDevice):
         """List of available input sources."""
         return self._sources
 
-    @try_and_delay_update(delay=BOOTING_ON_OFF_TIMEOUT)
     async def turn_off(self):
         """Turn the media player off."""
         await self._speaker.turn_off()
-        self._state = States.TurningOff
+        self._state = STATE_ON
 
-    @try_and_delay_update(delay=BOOTING_ON_OFF_TIMEOUT)
     async def turn_on(self):
         """Turn the media player on."""
-        source = None  # XXX: implement that it uses the latest used source
-        await self._speaker.turn_on(source)
-        self._state = States.TurningOn
+        await self._speaker.turn_on()
+        self._state = STATE_OFF
 
     async def volume_up(self):
         """Volume up the media player."""
-        await self._ensure_online()
         self._volume = await self._speaker.increase_volume()
 
     async def volume_down(self):
         """Volume down the media player."""
-        await self._ensure_online()
         self._volume = await self._speaker.decrease_volume()
 
     async def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        await self._ensure_online()
         await self._speaker.set_volume(volume)
         self._volume = volume
 
     async def mute_volume(self, mute):
         """Mute (True) or unmute (False) media player."""
-        await self._ensure_online()
         if mute:
             await self._speaker.mute()
         else:
@@ -256,7 +201,6 @@ class KefMediaPlayer(MediaPlayerDevice):
 
     async def select_source(self, source: str):
         """Select input source."""
-        await self._ensure_online()
         if source in self.source_list:
             self._source = source
             await self._speaker.set_source(source)

@@ -185,7 +185,7 @@ class AsyncKefSpeaker:
         return source, is_on
 
     async def get_source(self):
-        source, _ = await self._get_source()
+        source, _ = await self._get_source_and_state()
         return source
 
     async def set_source(self, source: str, *, state="on"):
@@ -195,7 +195,7 @@ class AsyncKefSpeaker:
             i += 128
         response = await self._comm.send_message(COMMANDS["set_source"](i))
         if response != _RESPONSE_OK:
-            raise ConnectionError("Setting source failed, got response {response}.")
+            raise ConnectionError(f"Setting source failed, got response {response}.")
 
     async def _get_volume(self, scale=True):
         volume = await self._comm.send_message(COMMANDS["get_volume"])
