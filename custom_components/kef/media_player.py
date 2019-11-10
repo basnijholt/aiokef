@@ -13,7 +13,14 @@ from homeassistant.components.media_player import (
     SUPPORT_VOLUME_STEP,
     MediaPlayerDevice,
 )
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNKNOWN,
+)
 from homeassistant.helpers import config_validation as cv
 
 from custom_components.kef.async_kef_api import INPUT_SOURCES, AsyncKefSpeaker
@@ -99,8 +106,7 @@ class KefMediaPlayer(MediaPlayerDevice):
             host, port, volume_step, maximum_volume, ioloop=self._hass.loop
         )
 
-        # Set internal states to None.
-        self._state = None
+        self._state = STATE_UNKNOWN
         self._muted = None
         self._source = None
         self._volume = None
@@ -161,12 +167,12 @@ class KefMediaPlayer(MediaPlayerDevice):
     async def async_turn_off(self):
         """Turn the media player off."""
         await self._speaker.turn_off()
-        self._state = STATE_ON
+        self._state = STATE_OFF
 
     async def async_turn_on(self):
         """Turn the media player on."""
         await self._speaker.turn_on()
-        self._state = STATE_OFF
+        self._state = STATE_ON
 
     async def async_volume_up(self):
         """Volume up the media player."""

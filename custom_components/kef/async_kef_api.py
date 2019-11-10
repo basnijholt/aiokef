@@ -126,7 +126,7 @@ class _AsyncCommunicator:
             time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
             if self.is_connected and time_is_up:
                 await self._disconnect()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(1)
 
     @retry(
         stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
