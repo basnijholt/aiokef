@@ -21,22 +21,32 @@ _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
 
+_SET_START = ord("S")
+_SET_MID = 129
+_GET_MID = 128
+_GET_START = ord("G")
+_SOURCE = ord("0")
+_VOL = ord("%")
 
+
+# The first number is used for setting the source.
+# Only in the case of Bluetooth there is a second number
+# that can identify if the bluetooth is connected.
 INPUT_SOURCES = {
-    "Wifi": dict(msg=bytes([0x53, 0x30, 0x81, 0x12, 0x82]), response=18),
-    "Bluetooth": dict(msg=bytes([0x53, 0x30, 0x81, 0x19, 0xAD]), response=31),
-    "Aux": dict(msg=bytes([0x53, 0x30, 0x81, 0x1A, 0x9B]), response=26),
-    "Opt": dict(msg=bytes([0x53, 0x30, 0x81, 0x1B, 0x00]), response=27),
-    "Usb": dict(msg=bytes([0x53, 0x30, 0x81, 0x1C, 0xF7]), response=28),
+    "Wifi": (18,),
+    "Bluetooth": (25, 31),  # 25=connected, 31=not_connected
+    "Aux": (26,),
+    "Opt": (27,),
+    "Usb": (28,),
 }
 
-INPUT_SOURCES_RESPONSE = {v["response"]: k for k, v in INPUT_SOURCES.items()}
+INPUT_SOURCES_RESPONSE = {i: k for k, v in INPUT_SOURCES.items() for i in v}
 
 COMMANDS = {
-    "turn_off": bytes([0x53, 0x30, 0x81, 0x9B, 0x0B]),
-    "get_source": bytes([0x47, 0x30, 0x80, 0xD9]),
-    "get_volume": bytes([0x47, 0x25, 0x80, 0x6C]),
-    "set_volume": lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A]),
+    "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
+    "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
+    "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
+    "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
 }
 
 
@@ -163,16 +173,25 @@ class AsyncKefSpeaker:
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
         self.sync = SyncKefSpeaker(self)
 
-    async def get_source(self):
+    async def _get_source_and_state(self):
+        # If the speaker is off, the source increases by 128
         response = await self._comm.send_message(COMMANDS["get_source"])
-        source = INPUT_SOURCES_RESPONSE.get(response)
+        is_on = response <= 128
+        source = INPUT_SOURCES_RESPONSE.get(response % 128)
         if source is None:
             raise ConnectionError("Getting source failed, got response {response}.")
+        return source, is_on
+
+    async def get_source(self):
+        source, _ = await self._get_source()
         return source
 
-    async def set_source(self, source: str):
+    async def set_source(self, source: str, *, state="on"):
         assert source in INPUT_SOURCES
-        response = await self._comm.send_message(INPUT_SOURCES[source]["msg"])
+        i = INPUT_SOURCES[source][0] % 128
+        if state == "off":
+            i += 128
+        response = await self._comm.send_message(COMMANDS["set_source"](i))
         if response != _RESPONSE_OK:
             raise ConnectionError("Setting source failed, got response {response}.")
 
@@ -190,11 +209,6 @@ class AsyncKefSpeaker:
             raise ConnectionError(
                 f"Setting the volume failed, got response {response}."
             )
-
-    async def turn_off(self):
-        response = await self._comm.send_message(COMMANDS["turn_off"])
-        if response != _RESPONSE_OK:
-            raise ConnectionError("Turning off failed, got response {response}.")
 
     async def get_volume(self) -> float:
         """Volume level of the media player (0..1). None if muted."""
@@ -238,13 +252,22 @@ class AsyncKefSpeaker:
         await self._comm.open_connection()
         return self._comm._is_online
 
+    async def is_on(self) -> bool:
+        _, is_on = await self._get_source_and_state()
+        return is_on
+
     async def turn_on(self, source=None):
         """The speaker can be turned on by selecting an INPUT_SOURCE."""
-        # XXX: it might be possible to turn on the speaker with the last
-        # used source selected.
-        if source is None:
-            source = "Wifi"
-        await self.set_source(source)
+        source, is_on = await self._get_source_and_state()
+        if is_on:
+            return
+        await self.set_source(source, state="on")
+
+    async def turn_off(self):
+        source, is_on = await self._get_source_and_state()
+        if not is_on:
+            return
+        await self.set_source(source, state="off")
 
 
 class SyncKefSpeaker:
