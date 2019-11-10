@@ -158,30 +158,30 @@ class KefMediaPlayer(MediaPlayerDevice):
         """List of available input sources."""
         return self._sources
 
-    async def turn_off(self):
+    async def async_turn_off(self):
         """Turn the media player off."""
         await self._speaker.turn_off()
         self._state = STATE_ON
 
-    async def turn_on(self):
+    async def async_turn_on(self):
         """Turn the media player on."""
         await self._speaker.turn_on()
         self._state = STATE_OFF
 
-    async def volume_up(self):
+    async def async_volume_up(self):
         """Volume up the media player."""
         self._volume = await self._speaker.increase_volume()
 
-    async def volume_down(self):
+    async def async_volume_down(self):
         """Volume down the media player."""
         self._volume = await self._speaker.decrease_volume()
 
-    async def set_volume_level(self, volume):
+    async def async_set_volume_level(self, volume):
         """Set volume level, range 0..1."""
         await self._speaker.set_volume(volume)
         self._volume = volume
 
-    async def mute_volume(self, mute):
+    async def async_mute_volume(self, mute):
         """Mute (True) or unmute (False) media player."""
         if mute:
             await self._speaker.mute()
@@ -189,7 +189,7 @@ class KefMediaPlayer(MediaPlayerDevice):
             await self._speaker.unmute()
         self._muted = mute
 
-    async def select_source(self, source: str):
+    async def async_select_source(self, source: str):
         """Select input source."""
         if source in self.source_list:
             self._source = source
