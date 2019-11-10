@@ -211,8 +211,9 @@ class AsyncKefSpeaker:
         """Change volume by `step`."""
         volume = await self.get_volume()
         is_muted = await self.is_muted()
-        if not is_muted:
-            return await self.set_volume(volume + step)
+        if is_muted:
+            await self.unmute()
+        return await self.set_volume(volume + step)
 
     async def increase_volume(self) -> float:
         """Increase volume by `self.volume_step`."""
