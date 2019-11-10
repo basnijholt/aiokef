@@ -93,7 +93,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         _LOGGER.debug(f"{unique_id} is already configured.")
     else:
         hass.data[DATA_KEF][unique_id] = media_player
-        async_add_entities([media_player])
+        async_add_entities([media_player], True)
 
 
 class States(Enum):
@@ -229,23 +229,23 @@ class KefMediaPlayer(MediaPlayerDevice):
         await self._speaker.turn_on(source)
         self._state = States.TurningOn
 
-    @try_and_delay_update(delay=UPDATE_TIMEOUT)
+    @try_and_delay_update(delay=0)
     async def volume_up(self):
         """Volume up the media player."""
         self._volume = await self._speaker.increase_volume()
 
-    @try_and_delay_update(delay=UPDATE_TIMEOUT)
+    @try_and_delay_update(delay=0)
     async def volume_down(self):
         """Volume down the media player."""
         self._volume = await self._speaker.decrease_volume()
 
-    @try_and_delay_update(delay=UPDATE_TIMEOUT)
+    @try_and_delay_update(delay=0)
     async def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
         await self._speaker.set_volume(volume)
         self._volume = volume
 
-    @try_and_delay_update(delay=UPDATE_TIMEOUT)
+    @try_and_delay_update(delay=0)
     async def mute_volume(self, mute):
         """Mute (True) or unmute (False) media player."""
         if mute:
