@@ -22,14 +22,6 @@ _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
 
-_SET_START = ord("S")
-_SET_MID = 129
-_GET_MID = 128
-_GET_START = ord("G")
-_SOURCE = ord("0")
-_VOL = ord("%")
-
-
 # The first number is used for setting the source.
 INPUT_SOURCES = {
     "Wifi": 18,
@@ -45,11 +37,18 @@ INPUT_SOURCES_RESPONSE = {v: k for k, v in INPUT_SOURCES.items()}
 # 25 is connected and 31 is not_connected.
 INPUT_SOURCES_RESPONSE[31] = "Bluetooth"
 
+_SET_START = ord("S")
+_SET_MID = 129
+_GET_MID = 128
+_GET_START = ord("G")
+_SOURCE = ord("0")
+_VOL = ord("%")
+
 COMMANDS = {
     "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
+    "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
     "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
     "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
-    "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
 }
 
 
