@@ -41,13 +41,10 @@ class _AsyncCommunicator:
     def __init__(self, host, port, *, ioloop=None):
         self.host = host
         self.port = port
-        self._queue = asyncio.Queue()
-        self._replies = asyncio.Queue()
         self._reader, self._writer = (None, None)
         self._last_time_stamp = 0
         self._is_online = False
         self._ioloop = ioloop or asyncio.get_event_loop()
-        self._run_task = self._ioloop.create_task(self._run())
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
 
     @property
@@ -116,22 +113,11 @@ class _AsyncCommunicator:
                 await self._disconnect()
             await asyncio.sleep(0.05)
 
-    async def _run(self):
-        while True:
-            msg = await self._queue.get()
-            _LOGGER.debug(f"Took message from the queue, msg: {msg}")
-            try:
-                await self.open_connection()
-            except ConnectionRefusedError as e:
-                _LOGGER.debug(f"Error in main loop: {e}")
-                continue
-            reply = await self._send_message(msg)
-            await self._replies.put(reply)
-            _LOGGER.debug(f"Received: {reply}")
-
     async def send_message(self, msg):
-        await self._queue.put(msg)
-        return await self._replies.get()
+        await self.open_connection()
+        reply = await self._send_message(msg)
+        _LOGGER.debug(f"Received: {reply}")
+        return reply
 
 
 class AsyncKefSpeaker:
