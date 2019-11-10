@@ -229,34 +229,34 @@ class KefMediaPlayer(MediaPlayerDevice):
         await self._speaker.turn_on(source)
         self._state = States.TurningOn
 
-    @try_and_delay_update(delay=0)
     async def volume_up(self):
         """Volume up the media player."""
+        await self._ensure_online()
         self._volume = await self._speaker.increase_volume()
 
-    @try_and_delay_update(delay=0)
     async def volume_down(self):
         """Volume down the media player."""
+        await self._ensure_online()
         self._volume = await self._speaker.decrease_volume()
 
-    @try_and_delay_update(delay=0)
     async def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
+        await self._ensure_online()
         await self._speaker.set_volume(volume)
         self._volume = volume
 
-    @try_and_delay_update(delay=0)
     async def mute_volume(self, mute):
         """Mute (True) or unmute (False) media player."""
+        await self._ensure_online()
         if mute:
             await self._speaker.mute()
         else:
             await self._speaker.unmute()
         self._muted = mute
 
-    @try_and_delay_update(delay=UPDATE_TIMEOUT)
     async def select_source(self, source: str):
         """Select input source."""
+        await self._ensure_online()
         if source in self.source_list:
             self._source = source
             await self._speaker.set_source(source)
