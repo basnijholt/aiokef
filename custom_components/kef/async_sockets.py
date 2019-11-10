@@ -1,7 +1,8 @@
 """A module for asynchronously interacting with KEF wireless speakers."""
 
 import asyncio
-import contextlib
+import functools
+import inspect
 import logging
 import socket
 import sys
@@ -11,7 +12,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 _LOGGER = logging.getLogger(__name__)
 _RESPONSE_OK = 17
-_TIMEOUT = 1.0  # in seconds
+_TIMEOUT = 2.0  # in seconds
 _KEEP_ALIVE = 10  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_SEND_COMMAND_TRIES = 5  # XXX: not used ATM
@@ -130,9 +131,6 @@ class AsyncKefSpeaker:
         self.maximum_volume = maximum_volume
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
 
-    def blocking_method(self, method: str, args=()):
-        return self._comm._ioloop.run_until_complete(getattr(self, method)(*args))
-
     async def get_source(self):
         response = await self._comm.send_message(COMMANDS["get_source"])
         source = INPUT_SOURCES_RESPONSE.get(response)
@@ -203,11 +201,8 @@ class AsyncKefSpeaker:
         volume = await self._get_volume(scale=False)
         await self._set_volume(int(volume) % 128)
 
-    @property
     def is_online(self) -> bool:
-        # This is a property because `open_connection` is very fast, ~5 ms.
-        with contextlib.suppress(Exception):
-            self.blocking_method("open_connection")
+        asyncio.run(self._comm.open_connection())
         return self._comm._is_online
 
     async def turn_on(self, source=None):
@@ -217,6 +212,33 @@ class AsyncKefSpeaker:
         if source is None:
             source = "Wifi"
         await self.set_source(source)
+
+
+class SyncKefSpeaker:
+    """A synchronous KEF speaker class.
+
+    This has the same methods as `AsyncKefSpeaker`, however, it wraps all async
+    methods and call them in a blocking way."""
+    def __init__(
+        self, host, port, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
+    ):
+        self._async_speaker = AsyncKefSpeaker(
+            host, port, volume_step, maximum_volume, ioloop=ioloop
+        )
+
+    def __getattr__(self, attr):
+        method = getattr(self._async_speaker, attr)
+        if method is None:
+            raise AttributeError(f"'SyncKefSpeaker' object has no attribute '{attr}.'")
+        if inspect.iscoroutinefunction(method):
+
+            @functools.wraps(method)
+            def wrapped(*args, **kwargs):
+                return asyncio.run(method(*args, **kwargs))
+
+            return wrapped
+        else:
+            return method
 
 
 host = "192.168.31.196"
