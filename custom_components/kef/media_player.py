@@ -179,7 +179,8 @@ class KefMediaPlayer(MediaPlayerDevice):
             updated_needed = True
 
         try:
-            if self._speaker.is_online() and self._state is not States.TurningOff:
+            is_online = await self._speaker.is_online()
+            if is_online and self._state is not States.TurningOff:
                 if updated_needed:
                     self._muted = await self._speaker.is_muted()
                     self._source = await self._speaker.get_source()
@@ -261,7 +262,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     async def select_source(self, source: str):
         """Select input source."""
         if source in self.source_list:
-            self._source = str(source)
+            self._source = source
             await self._speaker.set_source(source)
         else:
             raise ValueError(f"Unknown input source: {source}.")

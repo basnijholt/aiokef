@@ -234,8 +234,8 @@ class AsyncKefSpeaker:
         volume = await self._get_volume(scale=False)
         await self._set_volume(int(volume) % 128)
 
-    def is_online(self) -> bool:
-        asyncio.run(self._comm.open_connection())
+    async def is_online(self) -> bool:
+        await self._comm.open_connection()
         return self._comm._is_online
 
     async def turn_on(self, source=None):
