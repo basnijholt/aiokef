@@ -1,17 +1,18 @@
-"""A module for interacting with KEF wireless speakers."""
+"""A module for asynchronously interacting with KEF wireless speakers."""
 
 import asyncio
 import contextlib
-import functools
 import logging
-import select
 import socket
+import sys
 import time
+
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 _LOGGER = logging.getLogger(__name__)
 _RESPONSE_OK = 17
 _TIMEOUT = 1.0  # in seconds
-_KEEP_ALIVE = 1.0  # in seconds
+_KEEP_ALIVE = 10  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_SEND_COMMAND_TRIES = 5  # XXX: not used ATM
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
@@ -55,6 +56,7 @@ class _AsyncCommunicator:
 
     async def open_connection(self):
         if self.is_connected:
+            _LOGGER.debug("Connection is still alive")
             return
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
@@ -85,16 +87,19 @@ class _AsyncCommunicator:
         raise ConnectionRefusedError("Connection tries exceeded.")
 
     async def _send_message(self, message):
+        _LOGGER.debug(f"Writing message: {message}")
         self._writer.write(message)
         await self._writer.drain()
 
+        _LOGGER.debug("Reading message")
         read_task = self._reader.read(100)
         try:
             data = await asyncio.wait_for(read_task, timeout=_TIMEOUT)
+            _LOGGER.debug(f"Got reply, {data}")
             self._last_time_stamp = time.time()
             return data[-2]
         except asyncio.TimeoutError:
-            _LOGGER.debug("Timeout")
+            _LOGGER.error("Timeout in waiting for reply")
 
     async def _disconnect(self):
         if self.is_connected:
@@ -114,6 +119,7 @@ class _AsyncCommunicator:
     async def _run(self):
         while True:
             msg = await self._queue.get()
+            _LOGGER.debug(f"Took message from the queue, msg: {msg}")
             try:
                 await self.open_connection()
             except ConnectionRefusedError as e:
@@ -181,17 +187,16 @@ class AsyncKefSpeaker:
         return volume if not is_muted else None
 
     async def set_volume(self, value: float):
-        volume = int(max(0.0, min(self.maximum_volume, value)) * _VOLUME_SCALE)
-        await self._set_volume(volume)
+        volume = max(0.0, min(self.maximum_volume, value))
+        await self._set_volume(int(volume * _VOLUME_SCALE))
+        return volume
 
     async def _change_volume(self, step: float):
         """Change volume by `step`."""
         volume = await self.get_volume()
         is_muted = await self.is_muted()
         if not is_muted:
-            new_volume = volume + step
-            await self.set_volume(new_volume)
-            return new_volume
+            return await self.set_volume(volume + step)
 
     async def increase_volume(self) -> float:
         """Increase volume by `self.volume_step`."""
@@ -214,10 +219,10 @@ class AsyncKefSpeaker:
 
     @property
     def is_online(self) -> bool:
-        # This is a property because `_refresh_connection` is very fast, ~5 ms.
+        # This is a property because `open_connection` is very fast, ~5 ms.
         with contextlib.suppress(Exception):
             self.blocking_method("open_connection")
-        return self._is_online
+        return self._comm._is_online
 
     async def turn_on(self, source=None):
         """The speaker can be turned on by selecting an INPUT_SOURCE."""
