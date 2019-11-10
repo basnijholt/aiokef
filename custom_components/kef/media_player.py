@@ -106,14 +106,14 @@ class States(Enum):
         return self in (States.TurningOn, States.TurningOff)
 
 
-async def try_and_delay_update(delay):
-    async def deco(f):
+def try_and_delay_update(delay):
+    def deco(f):
         @functools.wraps(f)
         async def wrapper(*args, **kwargs):
             try:
                 self = args[0]
                 await self._ensure_online()
-                result = f(*args, **kwargs)
+                result = await f(*args, **kwargs)
                 self._update_timeout = time.time() + delay
                 return result
             except Exception as e:
@@ -171,7 +171,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     async def async_update(self):
         """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
-        if self._state.is_changing():
+        if self._state is not None and self._state.is_changing():
             # The speaker is turning on or off.
             if updated_needed:
                 # Invalidate the state if it's time to update.
@@ -179,7 +179,7 @@ class KefMediaPlayer(MediaPlayerDevice):
             updated_needed = True
 
         try:
-            if self._speaker.online and self._state is not States.TurningOff:
+            if self._speaker.is_online() and self._state is not States.TurningOff:
                 if updated_needed:
                     self._muted = await self._speaker.is_muted()
                     self._source = await self._speaker.get_source()
