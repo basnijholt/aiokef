@@ -63,7 +63,7 @@ class _Communicator:
         self.is_online = False
         raise ConnectionRefusedError("Connection tries exceeded")
 
-    async def send_message(self, message):
+    async def _send_message(self, message):
         self.writer.write(message)
         await self.writer.drain()
 
@@ -88,22 +88,37 @@ class _Communicator:
             time_is_up = time.time() - self.last_time > _KEEP_ALIVE
             if self.is_connected and time_is_up:
                 await self.disconnect()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.05)
 
     async def run(self):
         while True:
             message = await self.queue.get()
-            await self.open_connection()
-            reply = await self.send_message(message)
+            try:
+                await self.open_connection()
+            except ConnectionRefusedError as e:
+                print(f"Error in main loop: {e}")
+                continue
+            reply = await self._send_message(message)
             await self.replies.put(reply)
             print(f"Received: {reply}")
+
+    async def send_message(self, msg):
+        await self.queue.put(msg)
+        return await self.replies.get()
+
+    def send_message_blocking(self, msg):
+        """Send a message and return the reply (blocking)."""
+        send_task = asyncio.ensure_future(self.send_message(msg))
+        reply = self.ioloop.run_until_complete(send_task)
+        return reply
 
 
 host = "192.168.31.196"
 port = 50001
 s = _Communicator(host, port)
 
+
 vol = lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
 
-for i in range(0, 20):
-    s.queue.put_nowait(vol(i))
+t = s.send_message_blocking(vol(25))
+print(t)
