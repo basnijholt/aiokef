@@ -36,22 +36,22 @@ COMMANDS = {
 }
 
 
-class _Communicator:
+class AsyncKefSpeaker:
     def __init__(self, host, port, *, ioloop=None):
         self.host = host
         self.port = port
-        self.queue = asyncio.Queue()
-        self.replies = asyncio.Queue()
-        self.reader, self.writer = (None, None)
-        self.last_time = 0
+        self._queue = asyncio.Queue()
+        self._replies = asyncio.Queue()
+        self._reader, self._writer = (None, None)
+        self._last_time_stamp = 0
         self._is_online = False
-        self.ioloop = ioloop or asyncio.get_event_loop()
-        self.task = self.ioloop.create_task(self.run())
-        self.disconnect_task = self.ioloop.create_task(self.disconnect_if_passive())
+        self._ioloop = ioloop or asyncio.get_event_loop()
+        self._run_task = self._ioloop.create_task(self._run())
+        self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
 
     @property
     def is_connected(self):
-        return (self.reader, self.writer) != (None, None)
+        return (self._reader, self._writer) != (None, None)
 
     async def open_connection(self):
         if self.is_connected:
@@ -63,7 +63,7 @@ class _Communicator:
                 task = asyncio.open_connection(
                     self.host, self.port, family=socket.AF_INET
                 )
-                self.reader, self.writer = await asyncio.wait_for(
+                self._reader, self._writer = await asyncio.wait_for(
                     task, timeout=_TIMEOUT
                 )
             except ConnectionRefusedError:
@@ -78,20 +78,20 @@ class _Communicator:
                 raise ConnectionRefusedError("Speaker is offline.") from e
             else:
                 self._is_online = True
-                self.last_time = time.time()
+                self._last_time_stamp = time.time()
                 return
             retries += 1
         self._is_online = False
         raise ConnectionRefusedError("Connection tries exceeded.")
 
     async def _send_message(self, message):
-        self.writer.write(message)
-        await self.writer.drain()
+        self._writer.write(message)
+        await self._writer.drain()
 
-        read_task = self.reader.read(100)
+        read_task = self._reader.read(100)
         try:
             data = await asyncio.wait_for(read_task, timeout=1)
-            self.last_time = time.time()
+            self._last_time_stamp = time.time()
             return data[-2]
         except asyncio.TimeoutError:
             print("Timeout")
@@ -99,33 +99,33 @@ class _Communicator:
     async def disconnect(self):
         if self.is_connected:
             print("Disconnecting")
-            self.writer.close()
-            await self.writer.wait_closed()
-            self.reader, self.writer = (None, None)
+            self._writer.close()
+            await self._writer.wait_closed()
+            self._reader, self._writer = (None, None)
 
-    async def disconnect_if_passive(self):
+    async def _disconnect_if_passive(self):
         """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
         while True:
-            time_is_up = time.time() - self.last_time > _KEEP_ALIVE
+            time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
             if self.is_connected and time_is_up:
                 await self.disconnect()
             await asyncio.sleep(0.05)
 
-    async def run(self):
+    async def _run(self):
         while True:
-            msg = await self.queue.get()
+            msg = await self._queue.get()
             try:
                 await self.open_connection()
             except ConnectionRefusedError as e:
                 print(f"Error in main loop: {e}")
                 continue
             reply = await self._send_message(msg)
-            await self.replies.put(reply)
+            await self._replies.put(reply)
             print(f"Received: {reply}")
 
     async def send_message(self, msg):
-        await self.queue.put(msg)
-        return await self.replies.get()
+        await self._queue.put(msg)
+        return await self._replies.get()
 
     async def get_source(self):
         response = await self.send_message(COMMANDS["get_source"])
@@ -200,7 +200,7 @@ class _Communicator:
     def is_online(self) -> bool:
         # This is a property because `_refresh_connection` is very fast, ~5 ms.
         with contextlib.suppress(Exception):
-            self.ioloop.run_until_complete(self.open_connection())
+            self._ioloop.run_until_complete(self.open_connection())
         return self._is_online
 
     async def turn_on(self, source=None):
@@ -212,12 +212,12 @@ class _Communicator:
         await self.set_source(source)
 
     def blocking_method(self, method: str, args=()):
-        return self.ioloop.run_until_complete(getattr(self, method)(*args))
+        return self._ioloop.run_until_complete(getattr(self, method)(*args))
 
 
 host = "192.168.31.196"
 port = 50001
-s = _Communicator(host, port)
+s = AsyncKefSpeaker(host, port)
 
 
 vol = lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
