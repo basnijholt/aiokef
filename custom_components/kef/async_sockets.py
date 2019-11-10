@@ -92,13 +92,13 @@ class _Communicator:
 
     async def run(self):
         while True:
-            message = await self.queue.get()
+            msg = await self.queue.get()
             try:
                 await self.open_connection()
             except ConnectionRefusedError as e:
                 print(f"Error in main loop: {e}")
                 continue
-            reply = await self._send_message(message)
+            reply = await self._send_message(msg)
             await self.replies.put(reply)
             print(f"Received: {reply}")
 
@@ -108,8 +108,7 @@ class _Communicator:
 
     def send_message_blocking(self, msg):
         """Send a message and return the reply (blocking)."""
-        send_task = asyncio.ensure_future(self.send_message(msg))
-        reply = self.ioloop.run_until_complete(send_task)
+        reply = self.ioloop.run_until_complete(self.send_message(msg))
         return reply
 
 
@@ -120,5 +119,5 @@ s = _Communicator(host, port)
 
 vol = lambda volume: bytes([0x53, 0x25, 0x81, int(volume), 0x1A])
 
-t = s.send_message_blocking(vol(25))
+t = s.send_message_blocking(vol(40))
 print(t)
