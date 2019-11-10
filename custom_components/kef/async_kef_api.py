@@ -8,7 +8,7 @@ import socket
 import sys
 import time
 
-from tenacity import retry, stop_after_attempt, wait_exponential, before_log
+from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -30,17 +30,19 @@ _VOL = ord("%")
 
 
 # The first number is used for setting the source.
-# Only in the case of Bluetooth there is a second number
-# that can identify if the bluetooth is connected.
 INPUT_SOURCES = {
-    "Wifi": (18,),
-    "Bluetooth": (25, 31),  # 25=connected, 31=not_connected
-    "Aux": (26,),
-    "Opt": (27,),
-    "Usb": (28,),
+    "Wifi": 18,
+    "Bluetooth": 25,
+    "Aux": 26,
+    "Opt": 27,
+    "Usb": 28,
 }
 
-INPUT_SOURCES_RESPONSE = {i: k for k, v in INPUT_SOURCES.items() for i in v}
+INPUT_SOURCES_RESPONSE = {v: k for k, v in INPUT_SOURCES.items()}
+# Only in the case of Bluetooth there is a second number
+# that can identify if the bluetooth is connected. Where
+# 25 is connected and 31 is not_connected.
+INPUT_SOURCES_RESPONSE[31] = "Bluetooth"
 
 COMMANDS = {
     "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
@@ -188,7 +190,7 @@ class AsyncKefSpeaker:
 
     async def set_source(self, source: str, *, state="on"):
         assert source in INPUT_SOURCES
-        i = INPUT_SOURCES[source][0] % 128
+        i = INPUT_SOURCES[source] % 128
         if state == "off":
             i += 128
         response = await self._comm.send_message(COMMANDS["set_source"](i))
