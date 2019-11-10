@@ -1,5 +1,6 @@
 """Platform for the KEF Wireless Speakers."""
 
+import asyncio
 import functools
 import logging
 import time
@@ -19,7 +20,7 @@ from homeassistant.components.media_player import (
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, STATE_OFF, STATE_ON
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.kef.kef_api import INPUT_SOURCES, KefSpeaker
+from custom_components.kef.async_kef_api import INPUT_SOURCES, AsyncKefSpeaker
 
 _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Setup Kef platform."""
     if DATA_KEF not in hass.data:
         hass.data[DATA_KEF] = {}
@@ -92,7 +93,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         _LOGGER.debug(f"{unique_id} is already configured.")
     else:
         hass.data[DATA_KEF][unique_id] = media_player
-        add_entities([media_player])
+        async_add_entities([media_player])
 
 
 class States(Enum):
@@ -105,13 +106,13 @@ class States(Enum):
         return self in (States.TurningOn, States.TurningOff)
 
 
-def try_and_delay_update(delay):
-    def deco(f):
+async def try_and_delay_update(delay):
+    async def deco(f):
         @functools.wraps(f)
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             try:
                 self = args[0]
-                self._ensure_online()
+                await self._ensure_online()
                 result = f(*args, **kwargs)
                 self._update_timeout = time.time() + delay
                 return result
@@ -131,7 +132,7 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._name = name
         self._hass = hass
         self._sources = sources
-        self._speaker = KefSpeaker(
+        self._speaker = AsyncKefSpeaker(
             host, port, volume_step, maximum_volume, ioloop=self._hass.loop
         )
 
@@ -142,15 +143,15 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._volume = None
         self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
 
-    def _ensure_online(self):
+    async def _ensure_online(self):
         """Use this function to wait for online state."""
         time_to_wait = WAIT_FOR_ONLINE_STATE
-        time_to_sleep = 0.1
+        time_to_sleep = 0.05
         while time_to_wait > 0:
             if self._state is States.Online:
                 return
             time_to_wait -= time_to_sleep
-            time.sleep(time_to_sleep)
+            await asyncio.sleep(time_to_sleep)
             if self._state is States.TurningOn:
                 time_to_wait = 10
 
@@ -167,7 +168,7 @@ class KefMediaPlayer(MediaPlayerDevice):
         else:
             return None
 
-    def update(self):
+    async def async_update(self):
         """Update latest state."""
         updated_needed = time.time() >= self._update_timeout
         if self._state.is_changing():
@@ -180,9 +181,9 @@ class KefMediaPlayer(MediaPlayerDevice):
         try:
             if self._speaker.online and self._state is not States.TurningOff:
                 if updated_needed:
-                    self._muted = self._speaker.is_muted()
-                    self._source = str(self._speaker.get_source())
-                    self._volume = self._speaker.get_volume()
+                    self._muted = await self._speaker.is_muted()
+                    self._source = await self._speaker.get_source()
+                    self._volume = await self._speaker.get_volume()
                 self._state = States.Online
             elif not self._state.is_changing():
                 # Speaker is not online and not turning on.
@@ -219,48 +220,48 @@ class KefMediaPlayer(MediaPlayerDevice):
         return self._sources
 
     @try_and_delay_update(delay=BOOTING_ON_OFF_TIMEOUT)
-    def turn_off(self):
+    async def turn_off(self):
         """Turn the media player off."""
-        self._speaker.turn_off()
+        await self._speaker.turn_off()
         self._state = States.TurningOff
 
     @try_and_delay_update(delay=BOOTING_ON_OFF_TIMEOUT)
-    def turn_on(self):
+    async def turn_on(self):
         """Turn the media player on."""
         source = None  # XXX: implement that it uses the latest used source
-        self._speaker.turn_on(source)
+        await self._speaker.turn_on(source)
         self._state = States.TurningOn
 
     @try_and_delay_update(delay=UPDATE_TIMEOUT)
-    def volume_up(self):
+    async def volume_up(self):
         """Volume up the media player."""
-        self._volume = self._speaker.increase_volume()
+        self._volume = await self._speaker.increase_volume()
 
     @try_and_delay_update(delay=UPDATE_TIMEOUT)
-    def volume_down(self):
+    async def volume_down(self):
         """Volume down the media player."""
-        self._volume = self._speaker.decrease_volume()
+        self._volume = await self._speaker.decrease_volume()
 
     @try_and_delay_update(delay=UPDATE_TIMEOUT)
-    def set_volume_level(self, volume):
+    async def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        self._speaker.set_volume(volume)
+        await self._speaker.set_volume(volume)
         self._volume = volume
 
     @try_and_delay_update(delay=UPDATE_TIMEOUT)
-    def mute_volume(self, mute):
+    async def mute_volume(self, mute):
         """Mute (True) or unmute (False) media player."""
         if mute:
-            self._speaker.mute()
+            await self._speaker.mute()
         else:
-            self._speaker.unmute()
+            await self._speaker.unmute()
         self._muted = mute
 
     @try_and_delay_update(delay=UPDATE_TIMEOUT)
-    def select_source(self, source: str):
+    async def select_source(self, source: str):
         """Select input source."""
         if source in self.source_list:
             self._source = str(source)
-            self._speaker.set_source(source)
+            await self._speaker.set_source(source)
         else:
             raise ValueError(f"Unknown input source: {source}.")

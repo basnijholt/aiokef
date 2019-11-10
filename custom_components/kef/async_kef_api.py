@@ -152,6 +152,7 @@ class AsyncKefSpeaker:
         Run any method that the `AsyncKefSpeaker` has in a synchronous way.
         For example ``kef_speaker.sync.mute()``.
     """
+
     def __init__(
         self, host, port=50001, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
     ):
@@ -267,6 +268,7 @@ class SyncKefSpeaker:
             return wrapped
         else:
             return method
+
 
 if __name__ == "__main__":
     host = "192.168.31.196"
