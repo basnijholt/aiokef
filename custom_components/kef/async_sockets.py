@@ -129,8 +129,31 @@ class _AsyncCommunicator:
 
 
 class AsyncKefSpeaker:
+    """Asynchronous KEF speaker class.
+
+    Parameters
+    ----------
+    host : str
+        The IP of the speaker.
+    port : int, optional
+        The port used for the communication, the default is 50001.
+    volume_step : float, optional
+        The volume change when calling `increase_volume` or
+        `decrease_volume`, by default 0.05.
+    maximum_volume : float, optional
+        The maximum allow volume, between 0 and 1. Use this to avoid
+        accidentally setting very high volumes, by default 1.0.
+    ioloop : `asyncio.BaseEventLoop`, optional
+        The eventloop to use.
+
+    Attributes
+    ----------
+    sync : SyncKefSpeaker
+        Run any method that the `AsyncKefSpeaker` has in a synchronous way.
+        For example ``kef_speaker.sync.mute()``.
+    """
     def __init__(
-        self, host, port, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
+        self, host, port=50001, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
     ):
         self.host = host
         self.port = port
