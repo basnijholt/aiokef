@@ -17,6 +17,7 @@ _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
 _KEEP_ALIVE = 10  # in seconds
 _VOLUME_SCALE = 100.0
+_MAX_ATTEMPT_TILL_SUCCESS = 5
 _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
@@ -175,7 +176,12 @@ class AsyncKefSpeaker:
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
         self.sync = SyncKefSpeaker(self)
 
-    async def _get_source_and_state(self):
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+    )
+    async def get_source_and_state(self):
         # If the speaker is off, the source increases by 128
         response = await self._comm.send_message(COMMANDS["get_source"])
         is_on = response <= 128
@@ -185,9 +191,14 @@ class AsyncKefSpeaker:
         return source, is_on
 
     async def get_source(self):
-        source, _ = await self._get_source_and_state()
+        source, _ = await self.get_source_and_state()
         return source
 
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+    )
     async def set_source(self, source: str, *, state="on"):
         assert source in INPUT_SOURCES
         i = INPUT_SOURCES[source] % 128
@@ -197,12 +208,22 @@ class AsyncKefSpeaker:
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting source failed, got response {response}.")
 
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+    )
     async def _get_volume(self, scale=True):
         volume = await self._comm.send_message(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
         return volume / _VOLUME_SCALE if scale else volume
 
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+    )
     async def _set_volume(self, volume: int):
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
@@ -255,21 +276,25 @@ class AsyncKefSpeaker:
         return self._comm._is_online
 
     async def is_on(self) -> bool:
-        _, is_on = await self._get_source_and_state()
+        _, is_on = await self.get_source_and_state()
         return is_on
 
     async def turn_on(self, source=None):
         """The speaker can be turned on by selecting an INPUT_SOURCE."""
-        source, is_on = await self._get_source_and_state()
+        source, is_on = await self.get_source_and_state()
         if is_on:
             return
         await self.set_source(source, state="on")
+        while not await self.is_on():
+            await asyncio.sleep(1)
 
     async def turn_off(self):
-        source, is_on = await self._get_source_and_state()
+        source, is_on = await self.get_source_and_state()
         if not is_on:
             return
         await self.set_source(source, state="off")
+        while await self.is_on():
+            await asyncio.sleep(1)
 
 
 class SyncKefSpeaker:

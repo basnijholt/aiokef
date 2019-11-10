@@ -127,13 +127,13 @@ class KefMediaPlayer(MediaPlayerDevice):
 
     async def async_update(self):
         """Update latest state."""
+        _LOGGER.debug('Running async_update')
         try:
             is_online = await self._speaker.is_online()
             if is_online:
                 self._muted = await self._speaker.is_muted()
-                self._source = await self._speaker.get_source()
                 self._volume = await self._speaker.get_volume()
-                is_on = await self._speaker.is_on()
+                self._source, is_on = await self._speaker.get_source_and_state()
                 self._state = STATE_ON if is_on else STATE_OFF
             else:
                 self._muted = None
