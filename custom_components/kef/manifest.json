@@ -4,5 +4,5 @@
   "documentation": "https://github.com/basnijholt/kef-home-assistant-component",
   "dependencies": [],
   "codeowners": ["@basnijholt"],
-  "requirements": []
+  "requirements": ["tenacity"]
 }

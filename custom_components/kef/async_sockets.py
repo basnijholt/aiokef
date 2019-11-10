@@ -8,6 +8,8 @@ import socket
 import sys
 import time
 
+from tenacity import retry, stop_after_attempt, wait_exponential
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 _LOGGER = logging.getLogger(__name__)
@@ -114,6 +116,10 @@ class _AsyncCommunicator:
                 await self._disconnect()
             await asyncio.sleep(0.05)
 
+    @retry(
+        stop=stop_after_attempt(_MAX_SEND_COMMAND_TRIES),
+        wait=wait_exponential(exp_base=1.5),
+    )
     async def send_message(self, msg):
         await self.open_connection()
         reply = await self._send_message(msg)
@@ -130,6 +136,7 @@ class AsyncKefSpeaker:
         self.volume_step = volume_step
         self.maximum_volume = maximum_volume
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
+        self.sync = SyncKefSpeaker(self)
 
     async def get_source(self):
         response = await self._comm.send_message(COMMANDS["get_source"])
@@ -219,15 +226,12 @@ class SyncKefSpeaker:
 
     This has the same methods as `AsyncKefSpeaker`, however, it wraps all async
     methods and call them in a blocking way."""
-    def __init__(
-        self, host, port, volume_step=0.05, maximum_volume=1.0, *, ioloop=None
-    ):
-        self._async_speaker = AsyncKefSpeaker(
-            host, port, volume_step, maximum_volume, ioloop=ioloop
-        )
+
+    def __init__(self, async_speaker):
+        self.async_speaker = async_speaker
 
     def __getattr__(self, attr):
-        method = getattr(self._async_speaker, attr)
+        method = getattr(self.async_speaker, attr)
         if method is None:
             raise AttributeError(f"'SyncKefSpeaker' object has no attribute '{attr}.'")
         if inspect.iscoroutinefunction(method):
