@@ -1,10 +1,6 @@
 """Platform for the KEF Wireless Speakers."""
 
-import asyncio
-import functools
 import logging
-import time
-from enum import Enum
 
 import voluptuous as vol
 from homeassistant.components.media_player import (
@@ -31,11 +27,6 @@ DEFAULT_PORT = 50001
 DEFAULT_MAX_VOLUME = 0.5
 DEFAULT_VOLUME_STEP = 0.05
 DATA_KEF = "kef"
-
-UPDATE_TIMEOUT = 1.0  # Timeout when a new source is selected.
-BOOTING_ON_OFF_TIMEOUT = 20.0  # Timeout when turning speaker on or off.
-# When changing volume or source, wait for the speaker until it is online for:
-WAIT_FOR_ONLINE_STATE = 10.0
 
 SCAN_INTERVAL = 15  # Used in HA.
 
@@ -113,7 +104,6 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._muted = None
         self._source = None
         self._volume = None
-        self._update_timeout = time.time() - BOOTING_ON_OFF_TIMEOUT
 
     @property
     def name(self):
@@ -127,7 +117,7 @@ class KefMediaPlayer(MediaPlayerDevice):
 
     async def async_update(self):
         """Update latest state."""
-        _LOGGER.debug('Running async_update')
+        _LOGGER.debug("Running async_update")
         try:
             is_online = await self._speaker.is_online()
             if is_online:
