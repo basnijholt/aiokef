@@ -8,7 +8,7 @@ import socket
 import sys
 import time
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, before_log
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -119,6 +119,7 @@ class _AsyncCommunicator:
     @retry(
         stop=stop_after_attempt(_MAX_SEND_COMMAND_TRIES),
         wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
     )
     async def send_message(self, msg):
         await self.open_connection()
