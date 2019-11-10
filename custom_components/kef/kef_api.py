@@ -138,7 +138,7 @@ class KefSpeaker:
             except (OSError, socket.timeout) as e:  # Host is down
                 self._online = False
                 _LOGGER.debug("Offline")
-                raise ConnectionRefusedError("Speaker is offline") from e
+                raise ConnectionRefusedError("Speaker is offline.") from e
             else:
                 self._connected = True
                 _LOGGER.debug("Connected")
