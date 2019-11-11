@@ -23,13 +23,7 @@ _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
 
 # The first number is used for setting the source.
-INPUT_SOURCES = {
-    "Wifi": 18,
-    "Bluetooth": 25,
-    "Aux": 26,
-    "Opt": 27,
-    "Usb": 28,
-}
+INPUT_SOURCES = {"Wifi": 18, "Bluetooth": 25, "Aux": 26, "Opt": 27, "Usb": 28}
 
 INPUT_SOURCES_RESPONSE = {v: k for k, v in INPUT_SOURCES.items()}
 # Only in the case of Bluetooth there is a second number

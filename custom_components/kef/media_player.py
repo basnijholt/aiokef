@@ -35,7 +35,8 @@ DEFAULT_MAX_VOLUME = 0.5
 DEFAULT_VOLUME_STEP = 0.05
 DATA_KEF = "kef"
 
-SCAN_INTERVAL = 15  # Used in HA.
+SCAN_INTERVAL = 15
+PARALLEL_UPDATES = 0
 
 KEF_LS50_SOURCES = sorted(INPUT_SOURCES.keys())
 
@@ -86,12 +87,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         sources=KEF_LS50_SOURCES,
         hass=hass,
     )
-    unique_id = f"{host}:{port}"
+    unique_id = media_player.unique_id
     if unique_id in hass.data[DATA_KEF]:
         _LOGGER.debug(f"{unique_id} is already configured.")
     else:
         hass.data[DATA_KEF][unique_id] = media_player
-        async_add_entities([media_player], True)
+        async_add_entities([media_player], update_before_add=True)
 
 
 class KefMediaPlayer(MediaPlayerDevice):
@@ -110,6 +111,8 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._muted = None
         self._source = None
         self._volume = None
+        self._is_online = None
+        self._update_task = self._hass.loop.run_until_complete(_schedule_updates())
 
     @property
     def name(self):
@@ -125,8 +128,8 @@ class KefMediaPlayer(MediaPlayerDevice):
         """Update latest state."""
         _LOGGER.debug("Running async_update")
         try:
-            is_online = await self._speaker.is_online()
-            if is_online:
+            self.is_online = await self._speaker.is_online()
+            if self.is_online:
                 self._muted = await self._speaker.is_muted()
                 self._volume = await self._speaker.get_volume()
                 self._source, is_on = await self._speaker.get_source_and_state()
@@ -163,6 +166,17 @@ class KefMediaPlayer(MediaPlayerDevice):
     def source_list(self):
         """List of available input sources."""
         return self._sources
+
+    @property
+    def available(self):
+        return self._is_online
+
+    @property
+    def unique_id(self):
+        return f"{self._speaker.host}:{self._speaker.port}"
+
+    def icon(self):
+        return "mdi:speaker-wireless"
 
     async def async_turn_off(self):
         """Turn the media player off."""
@@ -202,3 +216,12 @@ class KefMediaPlayer(MediaPlayerDevice):
             await self._speaker.set_source(source)
         else:
             raise ValueError(f"Unknown input source: {source}.")
+
+    async def _schedule_updates(self):
+        while True:
+            try:
+                self.async_schedule_update_ha_state(force_refresh=False)
+            except BaseException as e:
+                _LOGGER(f"Updating the state failed with: {e}")
+            finally:
+                await asyncio.sleep(SCAN_INTERVAL)
