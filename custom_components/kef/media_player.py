@@ -1,6 +1,7 @@
 """Platform for the KEF Wireless Speakers."""
 
 import logging
+import datetime
 
 import voluptuous as vol
 from homeassistant.components.media_player import (
@@ -35,7 +36,7 @@ DEFAULT_MAX_VOLUME = 0.5
 DEFAULT_VOLUME_STEP = 0.05
 DATA_KEF = "kef"
 
-SCAN_INTERVAL = 15
+SCAN_INTERVAL = datetime.timedelta(seconds=15)
 PARALLEL_UPDATES = 0
 
 KEF_LS50_SOURCES = sorted(INPUT_SOURCES.keys())
