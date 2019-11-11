@@ -175,6 +175,7 @@ class KefMediaPlayer(MediaPlayerDevice):
     def unique_id(self):
         return f"{self._speaker.host}:{self._speaker.port}"
 
+    @property
     def icon(self):
         return "mdi:speaker-wireless"
 
