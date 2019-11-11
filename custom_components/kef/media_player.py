@@ -112,7 +112,6 @@ class KefMediaPlayer(MediaPlayerDevice):
         self._source = None
         self._volume = None
         self._is_online = None
-        self._update_task = self._hass.loop.run_until_complete(_schedule_updates())
 
     @property
     def name(self):
@@ -178,6 +177,11 @@ class KefMediaPlayer(MediaPlayerDevice):
     def icon(self):
         return "mdi:speaker-wireless"
 
+    @property
+    def should_poll(self):
+        """It's possible that the speaker is controlled manually."""
+        return True
+
     async def async_turn_off(self):
         """Turn the media player off."""
         await self._speaker.turn_off()
@@ -216,12 +220,3 @@ class KefMediaPlayer(MediaPlayerDevice):
             await self._speaker.set_source(source)
         else:
             raise ValueError(f"Unknown input source: {source}.")
-
-    async def _schedule_updates(self):
-        while True:
-            try:
-                self.async_schedule_update_ha_state(force_refresh=False)
-            except BaseException as e:
-                _LOGGER(f"Updating the state failed with: {e}")
-            finally:
-                await asyncio.sleep(SCAN_INTERVAL)
