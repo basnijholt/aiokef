@@ -36,7 +36,7 @@ DEFAULT_MAX_VOLUME = 0.5
 DEFAULT_VOLUME_STEP = 0.05
 DATA_KEF = "kef"
 
-SCAN_INTERVAL = datetime.timedelta(seconds=15)
+SCAN_INTERVAL = datetime.timedelta(seconds=30)
 PARALLEL_UPDATES = 0
 
 KEF_LS50_SOURCES = sorted(INPUT_SOURCES.keys())
