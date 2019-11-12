@@ -265,8 +265,12 @@ class AsyncKefSpeaker:
         await self._set_volume(int(volume) % 128)
 
     async def is_online(self) -> bool:
-        await self._comm.open_connection()
-        return self._comm._is_online
+        try:
+            await self._comm.open_connection()
+        except ConnectionRefusedError:
+            assert not self._comm._is_online
+        finally:
+            return self._comm._is_online
 
     async def is_on(self) -> bool:
         _, is_on = await self.get_source_and_state()

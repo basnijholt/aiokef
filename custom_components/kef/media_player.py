@@ -141,6 +141,7 @@ class KefMediaPlayer(MediaPlayerDevice):
                 self._state = STATE_OFF
         except Exception as e:
             _LOGGER.debug(f"Error in `update`: {e}")
+            self._state = STATE_UNKNOWN
 
     @property
     def volume_level(self):
