@@ -17,7 +17,7 @@ _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
 _KEEP_ALIVE = 10  # in seconds
 _VOLUME_SCALE = 100.0
-_MAX_ATTEMPT_TILL_SUCCESS = 5
+_MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
