@@ -2,6 +2,6 @@
 
 __version__ = "0.1.0.dev0"
 
-from aiokef import AsyncKefSpeaker, SyncKefSpeaker
+from aiokef.aiokef import AsyncKefSpeaker, SyncKefSpeaker
 
 __all__ = ["AsyncKefSpeaker", "SyncKefSpeaker"]
