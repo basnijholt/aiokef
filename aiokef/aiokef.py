@@ -154,7 +154,7 @@ class AsyncKefSpeaker:
 
     Attributes
     ----------
-    sync : SyncKefSpeaker
+    sync : `aiokef.SyncKefSpeaker`
         Run any method that the `AsyncKefSpeaker` has in a synchronous way.
         For example ``kef_speaker.sync.mute()``.
     """
@@ -297,7 +297,7 @@ class AsyncKefSpeaker:
 class SyncKefSpeaker:
     """A synchronous KEF speaker class.
 
-    This has the same methods as `AsyncKefSpeaker`, however, it wraps all async
+    This has the same methods as `aiokef.AsyncKefSpeaker`, however, it wraps all async
     methods and call them in a blocking way."""
 
     def __init__(self, async_speaker):
