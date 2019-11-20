@@ -1,8 +1,0 @@
-{
-  "domain": "kef",
-  "name": "KEF",
-  "documentation": "https://github.com/basnijholt/kef-home-assistant-component",
-  "dependencies": [],
-  "codeowners": ["@basnijholt"],
-  "requirements": ["tenacity==6.0.0"]
-}
