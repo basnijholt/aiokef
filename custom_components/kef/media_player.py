@@ -184,6 +184,10 @@ class KefMediaPlayer(MediaPlayerDevice):
         """It's possible that the speaker is controlled manually."""
         return True
 
+    @property
+    def force_update(self):
+        return False
+
     async def async_turn_off(self):
         """Turn the media player off."""
         await self._speaker.turn_off()
