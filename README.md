@@ -1,5 +1,11 @@
-# Home Assistant `custom_component` for KEF speakers
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+# Asyncio Python API for KEF speakers
+
+[![license](https://img.shields.io/github/license/basnijholt/aiokef)](https://github.com/basnijholt/aiokef/blob/master/LICENSE)
+[![tests](https://github.com/basnijholt/aiokef/workflows/tests/badge.svg)](https://github.com/basnijholt/aiokef/actions?query=workflow%3Atests)
+[![codecov](https://img.shields.io/codecov/c/github/basnijholt/aiokef)](https://codecov.io/gh/basnijholt/aiokef)
+[![docs](https://img.shields.io/readthedocs/aiokef)](https://aiokef.readthedocs.io)
+[![version](https://img.shields.io/pypi/v/aiokef)](https://pypi.org/project/aiokef/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/aiokef)](https://pypi.org/project/aiokef/)
 
 Supported: *KEF LS50 Wireless (tested with latest firmware at 08-11-2019, `p6.2101809171.105039422`)*
 Untested: *KEF LSX*
@@ -12,27 +18,11 @@ Untested: *KEF LSX*
 - Automatically connects and disconnects when speakers goes online/offline
 
 ## Use in Home Assistant
+See [basnijholt/media_player.kef](https://github.com/basnijholt/media_player.kef/).
 
 ### Install
-(Recommended) *Installation with [HACS](https://hacs.xyz/)*.
-Go to the [HACS](https://hacs.xyz/) store and install KEF.
-
-(Alternative) *Manual installation*.
-Download the repo. Create folder in your home assistant `config` folder:
 ```bash
-mkdir -p /path/to/config/custom_components/
-cp -r media_player.kef/custom_components/kef /path/to/config/custom_components/
-```
-
-### Configure
-Add the component to Home Assistant by adding the following to `configuration.yaml`:
-```bash
-media_player:
-  - platform: kef
-    host: 192.168.x.x  # the IP of your speaker
-    name: MyAwesomeSpeaker  # optional, the name in Home Assistant
-    maximum_volume: 0.5  # optional, to avoid extremely loud volumes
-    volume_step: 0.05  # optional
+pip install aiokef
 ```
 
 ## Discussion

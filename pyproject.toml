@@ -1,0 +1,45 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "aiokef"
+author = "Bas Nijholt"
+author-email = "bas@nijho.lt"
+home-page = "https://github.com/basnijholt/aiokef"
+requires-python=">=3.6"
+description-file="README.md"
+keywords = "iot"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 1 - Planning",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+]
+requires = [
+    "tenacity",
+]
+
+[tool.flit.metadata.requires-extra]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-flake8",
+    "pytest-mypy",
+    "pytest-black",
+    "hypothesis[numpy]",
+    "tox",
+    "flake8-per-file-ignores",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "m2r",  # markdown support
+    "sphinxcontrib.apidoc",  # run sphinx-apidoc when building docs
+]
+dev = [
+    "flit",
+    "pre-commit",
+    "bump2version",
+]
