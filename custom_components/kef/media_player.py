@@ -86,7 +86,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         maximum_volume=maximum_volume,
         volume_step=volume_step,
         sources=KEF_LS50_SOURCES,
-        hass=hass,
+        ioloop=hass.loop,
     )
     unique_id = media_player.unique_id
     if unique_id in hass.data[DATA_KEF]:
@@ -99,13 +99,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 class KefMediaPlayer(MediaPlayerDevice):
     """Kef Player Object."""
 
-    def __init__(self, name, host, port, maximum_volume, volume_step, sources, hass):
+    def __init__(self, name, host, port, maximum_volume, volume_step, sources, ioloop):
         """Initialize the media player."""
         self._name = name
-        self._hass = hass
         self._sources = sources
         self._speaker = AsyncKefSpeaker(
-            host, port, volume_step, maximum_volume, ioloop=self._hass.loop
+            host, port, volume_step, maximum_volume, ioloop=ioloop,
         )
 
         self._state = STATE_UNKNOWN
