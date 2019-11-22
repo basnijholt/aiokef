@@ -10,7 +10,6 @@ import time
 
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 _LOGGER = logging.getLogger(__name__)
 _RESPONSE_OK = 17
@@ -316,9 +315,3 @@ class SyncKefSpeaker:
             return wrapped
         else:
             return method
-
-
-if __name__ == "__main__":
-    host = "192.168.31.196"
-    port = 50001
-    s = AsyncKefSpeaker(host, port)
