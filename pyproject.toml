@@ -7,14 +7,13 @@ module = "aiokef"
 author = "Bas Nijholt"
 author-email = "bas@nijho.lt"
 home-page = "https://github.com/basnijholt/aiokef"
-requires-python=">=3.7"
+requires-python=">=3.6"
 description-file="README.md"
 keywords = "iot"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Development Status :: 1 - Planning",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
 ]
 requires = [

@@ -331,7 +331,7 @@ class SyncKefSpeaker:
 
             @functools.wraps(method)
             def wrapped(*args, **kwargs):
-                return asyncio.run(method(*args, **kwargs))
+                return self.ioloop.run_until_complete(method(*args, **kwargs))
 
             return wrapped
         else:
