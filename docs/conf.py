@@ -18,7 +18,6 @@ import os
 
 import aiokef
 
-
 # -- Project information -----------------------------------------------------
 
 project = "aiokef"
