@@ -5,9 +5,8 @@ import functools
 import inspect
 import logging
 import socket
-import sys
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
@@ -213,7 +212,9 @@ class AsyncKefSpeaker:
         i = INPUT_SOURCES[source] % 128
         if state == "off":
             i += 128
-        response = await self._comm.send_message(COMMANDS["set_source"](i))  # type: ignore
+        response = await self._comm.send_message(
+            COMMANDS["set_source"](i)  # type: ignore
+        )
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting source failed, got response {response}.")
 
@@ -236,7 +237,9 @@ class AsyncKefSpeaker:
     async def _set_volume(self, volume: int) -> None:
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
-        response = await self._comm.send_message(COMMANDS["set_volume"](volume))  # type: ignore
+        response = await self._comm.send_message(
+            COMMANDS["set_volume"](volume)  # type: ignore
+        )
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting the volume failed, got response {response}."
