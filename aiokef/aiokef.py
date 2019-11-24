@@ -223,11 +223,13 @@ class AsyncKefSpeaker:
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
     )
-    async def _get_volume(self, scale=True) -> Union[float, int]:
+    async def get_volume_and_is_muted(self, scale=True) -> Tuple[Union[float, int], bool]:
+        """Return volume level (0..1) and is_muted (in a single call)."""
         volume = await self._comm.send_message(COMMANDS["get_volume"])
         if volume is None:
             raise ConnectionError("Getting volume failed.")
-        return volume / _VOLUME_SCALE if scale else volume
+        is_muted = volume >= 128
+        return volume / _VOLUME_SCALE if scale else volume, is_muted
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -247,8 +249,7 @@ class AsyncKefSpeaker:
 
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
-        volume = await self._get_volume(scale=True)
-        is_muted = await self.is_muted()
+        volume, is_muted = await self.get_volume_and_is_muted(scale=True)
         return volume if not is_muted else None
 
     async def set_volume(self, value: float) -> float:
@@ -274,14 +275,15 @@ class AsyncKefSpeaker:
         return await self._change_volume(-self.volume_step)
 
     async def is_muted(self) -> bool:
-        return await self._get_volume(scale=False) > 128
+        _, is_muted = await self.get_volume_and_is_muted(scale=False)
+        return is_muted
 
     async def mute(self) -> None:
-        volume = await self._get_volume(scale=False)
+        volume, _ = await self.get_volume_and_is_muted(scale=False)
         await self._set_volume(int(volume) % 128 + 128)
 
     async def unmute(self) -> None:
-        volume = await self._get_volume(scale=False)
+        volume, _ = await self.get_volume_and_is_muted(scale=False)
         await self._set_volume(int(volume) % 128)
 
     async def is_online(self) -> bool:
