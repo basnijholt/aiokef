@@ -221,6 +221,7 @@ class AsyncKefSpeaker:
         for _ in range(_MAX_ATTEMPT_TILL_SUCCESS):
             current_source = await self.get_source()
             if current_source == source:
+                _LOGGER.debug(f"Source is {source}")
                 return
             _LOGGER.debug(f"Source is {current_source} but {source} is selected")
             await asyncio.sleep(0.5)
