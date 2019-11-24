@@ -217,13 +217,18 @@ class AsyncKefSpeaker:
         )
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting source failed, got response {response}.")
+        while (await self.get_source()) != source:
+            _LOGGER.debug(f"Source is not yet selected after selecting {source}.")
+            await asyncio.sleep(0.5)
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
     )
-    async def get_volume_and_is_muted(self, scale=True) -> Tuple[Union[float, int], bool]:
+    async def get_volume_and_is_muted(
+        self, scale=True
+    ) -> Tuple[Union[float, int], bool]:
         """Return volume level (0..1) and is_muted (in a single call)."""
         volume = await self._comm.send_message(COMMANDS["get_volume"])
         if volume is None:
