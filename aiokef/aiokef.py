@@ -13,7 +13,7 @@ from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 _LOGGER = logging.getLogger(__name__)
 _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 10  # in seconds
+_KEEP_ALIVE = 20  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
