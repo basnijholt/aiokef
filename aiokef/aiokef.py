@@ -223,10 +223,12 @@ class AsyncKefSpeaker:
             if current_source == source:
                 _LOGGER.debug(f"Source is {source}")
                 return
-            _LOGGER.debug(f"Try #{i}: Source is {current_source} but {source} is selected")
+            _LOGGER.debug(
+                f"Try #{i}: Source is {current_source} but {source} is selected"
+            )
             await asyncio.sleep(0.5)
 
-        raise ConnectionError(
+        raise TimeoutError(
             f"Tried to set {source} {_MAX_ATTEMPT_TILL_SUCCESS} times"
             f" but the speaker is still {current_source}."
         )
@@ -315,10 +317,10 @@ class AsyncKefSpeaker:
 
     async def turn_on(self, source: Optional[str] = None) -> None:
         """The speaker can be turned on by selecting an INPUT_SOURCE."""
-        source, is_on = await self.get_source_and_state()
+        current_source, is_on = await self.get_source_and_state()
         if is_on:
             return
-        await self.set_source(source, state="on")
+        await self.set_source(source or current_source, state="on")
 
         for i in range(20):  # it can take 20s to boot
             if await self.is_on():
