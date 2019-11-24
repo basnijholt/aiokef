@@ -15,7 +15,7 @@ _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
 _KEEP_ALIVE = 20  # in seconds
 _VOLUME_SCALE = 100.0
-_MAX_ATTEMPT_TILL_SUCCESS = 10
+_MAX_ATTEMPT_TILL_SUCCESS = 5
 _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
@@ -217,8 +217,12 @@ class AsyncKefSpeaker:
         )
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting source failed, got response {response}.")
-        while (await self.get_source()) != source:
-            _LOGGER.debug(f"Source is not yet selected after selecting {source}.")
+
+        for _ in range(_MAX_ATTEMPT_TILL_SUCCESS):
+            current_source = await self.get_source()
+            if current_source == source:
+                return
+            _LOGGER.debug(f"Source is {current_source} but {source} is selected")
             await asyncio.sleep(0.5)
 
     @retry(
@@ -309,7 +313,12 @@ class AsyncKefSpeaker:
         if is_on:
             return
         await self.set_source(source, state="on")
-        while not await self.is_on():
+
+        for _ in range(_MAX_ATTEMPT_TILL_SUCCESS):
+            if await self.is_on():
+                _LOGGER.debug("Speaker is on")
+                return
+            _LOGGER.debug("Turned on the speaker, but it is still off")
             await asyncio.sleep(1)
 
     async def turn_off(self) -> None:
@@ -317,7 +326,12 @@ class AsyncKefSpeaker:
         if not is_on:
             return
         await self.set_source(source, state="off")
-        while await self.is_on():
+
+        for _ in range(_MAX_ATTEMPT_TILL_SUCCESS):
+            if not await self.is_on():
+                _LOGGER.debug("Speaker is off")
+                return
+            _LOGGER.debug("Turned off the speaker, but it is still on")
             await asyncio.sleep(1)
 
 
