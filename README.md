@@ -7,7 +7,7 @@
 [![version](https://img.shields.io/pypi/v/aiokef)](https://pypi.org/project/aiokef/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/aiokef)](https://pypi.org/project/aiokef/)
 
-Supported: *KEF LS50 Wireless (tested with latest firmware at 08-11-2019, `p6.2101809171.105039422`)*
+Supported: *KEF LS50 Wireless (tested with latest firmware of 19-11-2019: `p6.3001902221.105039422` and older firmware: `p6.2101809171.105039422`)*
 Untested: *KEF LSX*
 
 ## Supported features
