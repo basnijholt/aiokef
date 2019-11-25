@@ -79,6 +79,7 @@ class _AsyncCommunicator:
                 self._reader, self._writer = await asyncio.wait_for(
                     task, timeout=_TIMEOUT
                 )
+                _LOGGER.debug("Opening connection successful")
             except ConnectionRefusedError:
                 _LOGGER.debug("Opening connection failed")
                 await asyncio.sleep(1)
@@ -182,7 +183,7 @@ class AsyncKefSpeaker:
         self.volume_step = volume_step
         self.maximum_volume = maximum_volume
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
-        self.sync = SyncKefSpeaker(self)
+        self.sync = SyncKefSpeaker(self, ioloop)
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -349,8 +350,9 @@ class SyncKefSpeaker:
     This has the same methods as `aiokef.AsyncKefSpeaker`, however, it wraps all async
     methods and call them in a blocking way."""
 
-    def __init__(self, async_speaker: AsyncKefSpeaker):
+    def __init__(self, async_speaker: AsyncKefSpeaker, ioloop=None):
         self.async_speaker = async_speaker
+        self.ioloop = ioloop or asyncio.get_event_loop()
 
     def __getattr__(self, attr: str) -> Any:
         method = getattr(self.async_speaker, attr)
