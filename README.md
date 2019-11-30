@@ -15,6 +15,8 @@ Untested: *KEF LSX*
 - Mute and unmute
 - Get and set source input
 - Turn speaker on and off
+- Invert L/R to R/L
+- Set the standby time to infinite, 20 minutes, or 60 minutes
 - Automatically connects and disconnects when speakers goes online/offline
 
 ## Use in Home Assistant
