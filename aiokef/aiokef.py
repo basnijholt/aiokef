@@ -11,23 +11,41 @@ from typing import Any, Optional, Tuple, Union
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
 _LOGGER = logging.getLogger(__name__)
+
 _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 20  # in seconds
+_KEEP_ALIVE = 4  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
 _MAX_CONNECTION_RETRIES = 10  # Each time `_send_command` is called, ...
 # ... the connection is maximally refreshed this many times.
 
-# The first number is used for setting the source.
-INPUT_SOURCES = {"Wifi": 18, "Bluetooth": 25, "Aux": 26, "Opt": 27, "Usb": 28}
-
-INPUT_SOURCES_RESPONSE = {v: k for k, v in INPUT_SOURCES.items()}
 # Only in the case of Bluetooth there is a second number
-# that can identify if the bluetooth is connected. Where
-# 25 is connected and 31 is not_connected.
-INPUT_SOURCES_RESPONSE[31] = "Bluetooth"
+# that can identify if the bluetooth is connected.
+INPUT_SOURCES_20_MINUTES_LR = {
+    "Bluetooth": 9,
+    "Bluetooth_paired": 15,  # This cannot be used to set!
+    "Aux": 10,
+    "Opt": 11,
+    "Usb": 12,
+    "Wifi": 2,
+}
+
+# We will create {source_name: {standby_time: ("L/R code", "R/L code")}}
+STANDBY_OPTIONS = [20, 60, 0]  # in minutes and 0 means never standby
+INPUT_SOURCES = {}
+for source, code in INPUT_SOURCES_20_MINUTES_LR.items():
+    LR_mapping = {t: code + i * 16 for i, t in enumerate(STANDBY_OPTIONS)}
+    INPUT_SOURCES[source] = {t: (LR, LR + 64) for t, LR in LR_mapping.items()}
+
+INPUT_SOURCES_RESPONSE = {}
+for source, mapping in INPUT_SOURCES.items():
+    source = source.replace("_paired", "")
+    for t, (LR, RL) in mapping.items():
+        INPUT_SOURCES_RESPONSE[LR] = (source, t, "L/R")
+        INPUT_SOURCES_RESPONSE[RL] = (source, t, "R/L")
+
 
 _SET_START = ord("S")
 _SET_MID = 129
@@ -161,6 +179,11 @@ class AsyncKefSpeaker:
         accidentally setting very high volumes, by default 1.0.
     ioloop : `asyncio.BaseEventLoop`, optional
         The eventloop to use.
+    standby_time: int
+        Put the speaker in standby when inactive for ``standby_time``
+        minutes. The only options are 0 (for no standby), 20, and 60.
+    inverse_speaker_mode : bool, optional
+        Reverse L/R to R/L.
 
     Attributes
     ----------
@@ -175,15 +198,21 @@ class AsyncKefSpeaker:
         port: int = 50001,
         volume_step: float = 0.05,
         maximum_volume: float = 1.0,
+        standby_time: int = 0,
+        inverse_speaker_mode: bool = False,
         *,
         ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
+        if standby_time not in (0, 20, 60):
+            raise ValueError("It is only possible to use `standby_time` is 0, 20, or 60.")
         self.host = host
         self.port = port
         self.volume_step = volume_step
         self.maximum_volume = maximum_volume
+        self.standby_time = standby_time
+        self.inverse_speaker_mode = inverse_speaker_mode
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
-        self.sync = SyncKefSpeaker(self, ioloop)
+        self.sync = SyncKefSpeaker(self, self._comm._ioloop)
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -194,7 +223,7 @@ class AsyncKefSpeaker:
         # If the speaker is off, the source increases by 128
         response = await self._comm.send_message(COMMANDS["get_source"])
         is_on = response <= 128
-        source = INPUT_SOURCES_RESPONSE.get(response % 128)
+        source = INPUT_SOURCES_RESPONSE.get(response % 128, [None])[0]
         if source is None:
             raise ConnectionError("Getting source failed, got response {response}.")
         return source, is_on
@@ -210,7 +239,7 @@ class AsyncKefSpeaker:
     )
     async def set_source(self, source: str, *, state="on") -> None:
         assert source in INPUT_SOURCES
-        i = INPUT_SOURCES[source] % 128
+        i = INPUT_SOURCES[source][self.standby_time][self.inverse_speaker_mode] % 128
         if state == "off":
             i += 128
         response = await self._comm.send_message(
