@@ -6,6 +6,7 @@ import inspect
 import logging
 import socket
 import time
+from collections import namedtuple
 from typing import Any, Optional, Tuple, Union
 
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
@@ -60,6 +61,8 @@ COMMANDS = {
     "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
     "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
 }
+
+State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
 
 class _AsyncCommunicator:
@@ -204,7 +207,9 @@ class AsyncKefSpeaker:
         ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
         if standby_time not in (0, 20, 60):
-            raise ValueError("It is only possible to use `standby_time` is 0, 20, or 60.")
+            raise ValueError(
+                "It is only possible to use `standby_time` is 0, 20, or 60."
+            )
         self.host = host
         self.port = port
         self.volume_step = volume_step
@@ -219,18 +224,19 @@ class AsyncKefSpeaker:
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
     )
-    async def get_source_and_state(self) -> Tuple[str, bool]:
+    async def get_state(self) -> State:
         # If the speaker is off, the source increases by 128
         response = await self._comm.send_message(COMMANDS["get_source"])
         is_on = response <= 128
-        source = INPUT_SOURCES_RESPONSE.get(response % 128, [None])[0]
-        if source is None:
-            raise ConnectionError("Getting source failed, got response {response}.")
-        return source, is_on
+        code = response % 128
+        if code not in INPUT_SOURCES_RESPONSE:
+            raise ConnectionError(f"Getting source failed, got response {response}.")
+        source, standby_time, orientation = INPUT_SOURCES_RESPONSE[code]
+        return State(source, is_on, standby_time, orientation)
 
     async def get_source(self) -> None:
-        source, _ = await self.get_source_and_state()
-        return source
+        state = await self.get_state()
+        return state.source
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -342,15 +348,15 @@ class AsyncKefSpeaker:
             return self._comm._is_online
 
     async def is_on(self) -> bool:
-        _, is_on = await self.get_source_and_state()
-        return is_on
+        state = await self.get_state()
+        return state.is_on
 
     async def turn_on(self, source: Optional[str] = None) -> None:
         """The speaker can be turned on by selecting an INPUT_SOURCE."""
-        current_source, is_on = await self.get_source_and_state()
-        if is_on:
+        state = await self.get_state()
+        if state.is_on:
             return
-        await self.set_source(source or current_source, state="on")
+        await self.set_source(source or state.source, state="on")
 
         for i in range(20):  # it can take 20s to boot
             if await self.is_on():
@@ -360,10 +366,10 @@ class AsyncKefSpeaker:
             await asyncio.sleep(1)
 
     async def turn_off(self) -> None:
-        source, is_on = await self.get_source_and_state()
-        if not is_on:
+        state = await self.get_state()
+        if not state.is_on:
             return
-        await self.set_source(source, state="off")
+        await self.set_source(state.source, state="off")
 
         for i in range(20):  # it can take 20s to boot
             if not await self.is_on():
