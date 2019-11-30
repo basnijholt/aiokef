@@ -34,7 +34,7 @@ INPUT_SOURCES_20_MINUTES_LR = {
 }
 
 # We will create {source_name: {standby_time: ("L/R code", "R/L code")}}
-STANDBY_OPTIONS = [20, 60, 0]  # in minutes and 0 means never standby
+STANDBY_OPTIONS = [20, 60, None]  # in minutes and 0 means never standby
 INPUT_SOURCES = {}
 for source, code in INPUT_SOURCES_20_MINUTES_LR.items():
     LR_mapping = {t: code + i * 16 for i, t in enumerate(STANDBY_OPTIONS)}
@@ -182,9 +182,9 @@ class AsyncKefSpeaker:
         accidentally setting very high volumes, by default 1.0.
     ioloop : `asyncio.BaseEventLoop`, optional
         The eventloop to use.
-    standby_time: int
+    standby_time: int, optional
         Put the speaker in standby when inactive for ``standby_time``
-        minutes. The only options are 0 (for no standby), 20, and 60.
+        minutes. The only options are None (default), 20, and 60.
     inverse_speaker_mode : bool, optional
         Reverse L/R to R/L.
 
@@ -201,14 +201,14 @@ class AsyncKefSpeaker:
         port: int = 50001,
         volume_step: float = 0.05,
         maximum_volume: float = 1.0,
-        standby_time: int = 0,
+        standby_time: int = None,
         inverse_speaker_mode: bool = False,
         *,
         ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
-        if standby_time not in (0, 20, 60):
+        if standby_time not in STANDBY_OPTIONS:
             raise ValueError(
-                "It is only possible to use `standby_time` is 0, 20, or 60."
+                f"It is only possible to use `standby_time` from {STANDBY_OPTIONS}"
             )
         self.host = host
         self.port = port
