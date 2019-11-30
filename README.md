@@ -22,7 +22,7 @@ Untested: *KEF LSX*
 ## Use in Home Assistant
 See [basnijholt/media_player.kef](https://github.com/basnijholt/media_player.kef/).
 
-### Install
+## Install
 ```bash
 pip install aiokef
 ```
