@@ -200,7 +200,7 @@ class AsyncKefSpeaker:
         port: int = 50001,
         volume_step: float = 0.05,
         maximum_volume: float = 1.0,
-        standby_time: int = None,
+        standby_time: Optional[int] = None,
         inverse_speaker_mode: bool = False,
         *,
         ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
