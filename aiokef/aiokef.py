@@ -47,7 +47,6 @@ for source, mapping in INPUT_SOURCES.items():
         INPUT_SOURCES_RESPONSE[LR] = (source, t, "L/R")
         INPUT_SOURCES_RESPONSE[RL] = (source, t, "R/L")
 
-
 _SET_START = ord("S")
 _SET_MID = 129
 _GET_MID = 128
