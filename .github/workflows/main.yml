@@ -9,7 +9,7 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]  # windows-latest fails for an unknown reason
-        python-version: [3.7, 3.8]
+        python-version: [3.7]  # XXX: disable 3.8 because of "AttributeError: 'FlakesChecker' object has no attribute 'CONSTANT'" error
     steps:
       - uses: actions/checkout@v1
       - shell: bash
