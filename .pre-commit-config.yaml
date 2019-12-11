@@ -35,4 +35,7 @@ repos:
           - --force-grid-wrap=0
           - --use-parentheses
           - --line-width=88
-          - --thirdparty=pytest
+-   repo: https://github.com/asottile/seed-isort-config
+    rev: v1.9.3
+    hooks:
+    -   id: seed-isort-config
