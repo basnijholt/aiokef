@@ -1,20 +1,38 @@
 repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.4.0
+    hooks:
+    -   id: trailing-whitespace
+        exclude: '.bumpversion.cfg'
+    -   id: end-of-file-fixer
+        exclude: '.bumpversion.cfg'
+    -   id: check-docstring-first
+    -   id: check-yaml
+    -   id: debug-statements
+    -   id: check-ast
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.7.9
+    hooks:
+    -   id: flake8
+        args: ['--config=tox.ini']
 -   repo: https://github.com/ambv/black
-    rev: 19.3b0
+    rev: 19.10b0
     hooks:
     - id: black
       language_version: python3.7
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.1.0
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v1.25.2
     hooks:
-    - id: end-of-file-fixer
-      exclude: '.bumpversion.cfg'
-    - id: trailing-whitespace
-      exclude: '.bumpversion.cfg'
-# Disable this until 3.8.0 is released (as explained in
-# https://gitlab.com/pycqa/flake8/issues/450)
-#-   repo: https://gitlab.com/pycqa/flake8
-#    rev: 3.8.0
-#    hooks:
-#    - id: flake8
-#      args: ['--config=tox.ini']
+    -   id: pyupgrade
+        args: ['--py36-plus']
+-   repo: https://github.com/pre-commit/mirrors-isort
+    rev: v4.3.21
+    hooks:
+    -   id: isort
+        args:
+          - --multi-line=3
+          - --trailing-comma
+          - --force-grid-wrap=0
+          - --use-parentheses
+          - --line-width=88
+          - --thirdparty=pytest
