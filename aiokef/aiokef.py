@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 
 _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 1  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
@@ -69,17 +68,12 @@ class _AsyncCommunicator:
         self,
         host: str,
         port: int,
-        *,
-        ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
         self.host = host
         self.port = port
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
-        self._last_time_stamp = 0.0
         self._is_online = False
-        self._ioloop = ioloop or asyncio.get_event_loop()
-        self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
 
     @property
     def is_connected(self) -> bool:
@@ -121,6 +115,7 @@ class _AsyncCommunicator:
     async def _send_message(self, message: bytes) -> int:
         assert self._writer is not None
         assert self._reader is not None
+
         _LOGGER.debug(f"Writing message: {str(message)}")
         self._writer.write(message)
         await self._writer.drain()
@@ -149,24 +144,18 @@ class _AsyncCommunicator:
         else:
             _LOGGER.debug("Trying to disconnect, but not connected.")
 
-    async def _disconnect_if_passive(self) -> None:
-        """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
-        while True:
-            time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
-            if self.is_connected and time_is_up:
-                await self._disconnect()
-            await asyncio.sleep(1)
-
     @retry(
         stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
     )
     async def send_message(self, msg) -> int:
-        await self.open_connection()
-        reply = await self._send_message(msg)
-        _LOGGER.debug(f"Received: {reply}")
-        # await self._disconnect()
+        try:
+            await self.open_connection()
+            reply = await self._send_message(msg)
+            _LOGGER.debug(f"Received: {reply}")
+        finally:
+            await self._disconnect()
         return reply
 
 
@@ -185,8 +174,6 @@ class AsyncKefSpeaker:
     maximum_volume : float, optional
         The maximum allow volume, between 0 and 1. Use this to avoid
         accidentally setting very high volumes, by default 1.0.
-    ioloop : `asyncio.BaseEventLoop`, optional
-        The eventloop to use.
     standby_time: int, optional
         Put the speaker in standby when inactive for ``standby_time``
         minutes. The only options are None (default), 20, and 60.
@@ -208,8 +195,6 @@ class AsyncKefSpeaker:
         maximum_volume: float = 1.0,
         standby_time: Optional[int] = None,
         inverse_speaker_mode: bool = False,
-        *,
-        ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
         if standby_time not in STANDBY_OPTIONS:
             raise ValueError(
@@ -221,8 +206,8 @@ class AsyncKefSpeaker:
         self.maximum_volume = maximum_volume
         self.standby_time = standby_time
         self.inverse_speaker_mode = inverse_speaker_mode
-        self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
-        self.sync = SyncKefSpeaker(self, self._comm._ioloop)
+        self._comm = _AsyncCommunicator(host, port)
+        self.sync = SyncKefSpeaker(self)
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -390,9 +375,8 @@ class SyncKefSpeaker:
     This has the same methods as `aiokef.AsyncKefSpeaker`, however, it wraps all async
     methods and call them in a blocking way."""
 
-    def __init__(self, async_speaker: AsyncKefSpeaker, ioloop=None):
+    def __init__(self, async_speaker: AsyncKefSpeaker):
         self.async_speaker = async_speaker
-        self.ioloop = ioloop or asyncio.get_event_loop()
 
     def __getattr__(self, attr: str) -> Any:
         method = getattr(self.async_speaker, attr)
@@ -402,7 +386,7 @@ class SyncKefSpeaker:
 
             @functools.wraps(method)
             def wrapped(*args, **kwargs):
-                return self.ioloop.run_until_complete(method(*args, **kwargs))
+                return asyncio.run(method(*args, **kwargs))
 
             return wrapped
         else:
