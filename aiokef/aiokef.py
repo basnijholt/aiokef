@@ -1,6 +1,7 @@
 """A module for asynchronously interacting with KEF wireless speakers."""
 
 import asyncio
+import contextlib
 import functools
 import inspect
 import logging
@@ -13,9 +14,9 @@ from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
 _LOGGER = logging.getLogger(__name__)
 
-_RESPONSE_OK = 17
+_RESPONSE_OK = 17  # the full response is [82, 17, 255]
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 4  # in seconds
+_KEEP_ALIVE = 1.0  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
@@ -64,6 +65,25 @@ COMMANDS = {
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
 
+def _parse_response(message, reply):
+    """Sometimes we receive many messages, so we need to split
+    them up and choose the right one."""
+    responses = [b"R" + i for i in reply.split(b"R") if i]
+
+    if message[0] == ord("G"):  # b"0" or b"%"
+        which = message[1]
+        try:
+            return next(r for r in responses if r[1] == which)
+        except StopIteration:
+            raise Exception("The query type didn't match with the response.")
+    elif message[0] == ord("S"):
+        FULL_RESPONSE_OK = bytes([82, 17, 255])
+        if FULL_RESPONSE_OK in responses:
+            return FULL_RESPONSE_OK
+        else:
+            raise Exception("Didn't get OK after SET command.")
+
+
 class _AsyncCommunicator:
     def __init__(
         self,
@@ -102,7 +122,7 @@ class _AsyncCommunicator:
                 _LOGGER.debug("Opening connection successful")
             except ConnectionRefusedError:
                 _LOGGER.debug("Opening connection failed")
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
             except BlockingIOError:  # Connection incomming
                 # XXX: I have never seen this.
                 retries = 0
@@ -134,7 +154,7 @@ class _AsyncCommunicator:
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout in waiting for reply")
         finally:
-            return data[-2]
+            return data
 
     async def _disconnect(self) -> None:
         if self.is_connected:
@@ -147,10 +167,11 @@ class _AsyncCommunicator:
     async def _disconnect_if_passive(self) -> None:
         """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
         while True:
-            time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
-            if self.is_connected and time_is_up:
-                await self._disconnect()
-            await asyncio.sleep(1)
+            with contextlib.suppress(Exception):
+                time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
+                if time_is_up:
+                    await self._disconnect()
+                await asyncio.sleep(0.5)
 
     @retry(
         stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
@@ -159,7 +180,8 @@ class _AsyncCommunicator:
     )
     async def send_message(self, msg) -> int:
         await self.open_connection()
-        reply = await self._send_message(msg)
+        raw_reply = await self._send_message(msg)
+        reply = _parse_response(msg, raw_reply)[-2]
         _LOGGER.debug(f"Received: {reply}")
         return reply
 
