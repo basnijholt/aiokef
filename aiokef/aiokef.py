@@ -15,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _RESPONSE_OK = 17
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 4  # in seconds
+_KEEP_ALIVE = 1  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
@@ -102,7 +102,7 @@ class _AsyncCommunicator:
                 _LOGGER.debug("Opening connection successful")
             except ConnectionRefusedError:
                 _LOGGER.debug("Opening connection failed")
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.1)
             except BlockingIOError:  # Connection incomming
                 # XXX: I have never seen this.
                 retries = 0
@@ -133,16 +133,21 @@ class _AsyncCommunicator:
             self._last_time_stamp = time.time()
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout in waiting for reply")
+        except RuntimeError:
+            _LOGGER.error(
+                "read() called while another coroutine is already waiting for incoming data"
+            )
         finally:
             return data[-2]
 
     async def _disconnect(self) -> None:
         if self.is_connected:
-            assert self._writer is not None
             _LOGGER.debug("Disconnecting")
             self._writer.close()
             await self._writer.wait_closed()
             self._reader, self._writer = (None, None)
+        else:
+            _LOGGER.debug("Trying to disconnect, but not connected.")
 
     async def _disconnect_if_passive(self) -> None:
         """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
@@ -161,6 +166,7 @@ class _AsyncCommunicator:
         await self.open_connection()
         reply = await self._send_message(msg)
         _LOGGER.debug(f"Received: {reply}")
+        # await self._disconnect()
         return reply
 
 
