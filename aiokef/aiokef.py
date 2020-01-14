@@ -10,7 +10,14 @@ import time
 from collections import namedtuple
 from typing import Any, Optional, Tuple, Union
 
-from tenacity import after_log, before_log, retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    after_log,
+    before_log,
+    before_sleep_log,
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -179,6 +186,7 @@ class _AsyncCommunicator:
         stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
     async def send_message(self, msg) -> int:
@@ -247,6 +255,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
     async def get_state(self) -> State:
@@ -267,6 +276,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
     async def set_source(self, source: str, *, state="on") -> None:
@@ -299,6 +309,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
     async def get_volume_and_is_muted(
@@ -315,6 +326,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
     async def _set_volume(self, volume: int) -> None:
