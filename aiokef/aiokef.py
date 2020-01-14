@@ -72,7 +72,7 @@ COMMANDS = {
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
 
-def _parse_response(message, reply):
+def _parse_response(message: bytes, reply: bytes) -> bytes:
     """Sometimes we receive many messages, so we need to split
     them up and choose the right one."""
     responses = [b"R" + i for i in reply.split(b"R") if i]
@@ -90,7 +90,7 @@ def _parse_response(message, reply):
         else:
             raise Exception("Didn't get OK after SET command.")
     else:
-        raise Exception(f"Got an unknown response '{reply}'")
+        raise Exception(f"Got an unknown response '{reply!r}'")
 
 
 class _AsyncCommunicator:
@@ -147,7 +147,7 @@ class _AsyncCommunicator:
         self._is_online = False
         raise ConnectionRefusedError("Connection tries exceeded.")
 
-    async def _send_message(self, message: bytes) -> int:
+    async def _send_message(self, message: bytes) -> bytes:
         assert self._writer is not None
         assert self._reader is not None
         _LOGGER.debug(f"Writing message: {str(message)}")
@@ -189,7 +189,7 @@ class _AsyncCommunicator:
         before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
         after=after_log(_LOGGER, logging.DEBUG),
     )
-    async def send_message(self, msg) -> int:
+    async def send_message(self, msg: bytes) -> int:
         await self.open_connection()
         raw_reply = await self._send_message(msg)
         reply = _parse_response(msg, raw_reply)[-2]
