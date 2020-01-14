@@ -109,6 +109,7 @@ class _AsyncCommunicator:
         self._is_online = False
         self._ioloop = ioloop or asyncio.get_event_loop()
         self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
+        self._lock = asyncio.Lock()
 
     @property
     def is_connected(self) -> bool:
@@ -122,12 +123,13 @@ class _AsyncCommunicator:
         while retries < _MAX_CONNECTION_RETRIES:
             _LOGGER.debug("Opening connection")
             try:
-                task = asyncio.open_connection(
-                    self.host, self.port, family=socket.AF_INET
-                )
-                self._reader, self._writer = await asyncio.wait_for(
-                    task, timeout=_TIMEOUT
-                )
+                async with self._lock:
+                    task = asyncio.open_connection(
+                        self.host, self.port, family=socket.AF_INET
+                    )
+                    self._reader, self._writer = await asyncio.wait_for(
+                        task, timeout=_TIMEOUT
+                    )
                 _LOGGER.debug("Opening connection successful")
             except ConnectionRefusedError:
                 _LOGGER.debug("Opening connection failed")
@@ -148,30 +150,32 @@ class _AsyncCommunicator:
         raise ConnectionRefusedError("Connection tries exceeded.")
 
     async def _send_message(self, message: bytes) -> bytes:
-        assert self._writer is not None
-        assert self._reader is not None
-        _LOGGER.debug(f"Writing message: {str(message)}")
-        self._writer.write(message)
-        await self._writer.drain()
+        async with self._lock:
+            assert self._writer is not None
+            assert self._reader is not None
+            _LOGGER.debug(f"Writing message: {str(message)}")
+            self._writer.write(message)
+            await self._writer.drain()
 
-        _LOGGER.debug("Reading message")
-        read_task = self._reader.read(100)
-        try:
-            data = await asyncio.wait_for(read_task, timeout=_TIMEOUT)
-            _LOGGER.debug(f"Got reply, {str(data)}")
-            self._last_time_stamp = time.time()
-        except asyncio.TimeoutError:
-            _LOGGER.error("Timeout in waiting for reply")
-        finally:
-            return data
+            _LOGGER.debug("Reading message")
+            read_task = self._reader.read(100)
+            try:
+                data = await asyncio.wait_for(read_task, timeout=_TIMEOUT)
+                _LOGGER.debug(f"Got reply, {str(data)}")
+                self._last_time_stamp = time.time()
+            except asyncio.TimeoutError:
+                _LOGGER.error("Timeout in waiting for reply")
+            finally:
+                return data
 
     async def _disconnect(self) -> None:
         if self.is_connected:
-            assert self._writer is not None
-            _LOGGER.debug("Disconnecting")
-            self._writer.close()
-            await self._writer.wait_closed()
-            self._reader, self._writer = (None, None)
+            async with self._lock:
+                assert self._writer is not None
+                _LOGGER.debug("Disconnecting")
+                self._writer.close()
+                await self._writer.wait_closed()
+                self._reader, self._writer = (None, None)
 
     async def _disconnect_if_passive(self) -> None:
         """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
