@@ -10,7 +10,7 @@ import time
 from collections import namedtuple
 from typing import Any, Optional, Tuple, Union
 
-from tenacity import before_log, retry, stop_after_attempt, wait_exponential
+from tenacity import after_log, before_log, retry, stop_after_attempt, wait_exponential
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -179,6 +179,7 @@ class _AsyncCommunicator:
         stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
     )
     async def send_message(self, msg) -> int:
         await self.open_connection()
@@ -246,6 +247,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
     )
     async def get_state(self) -> State:
         # If the speaker is off, the source increases by 128
@@ -265,6 +267,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
     )
     async def set_source(self, source: str, *, state="on") -> None:
         assert source in INPUT_SOURCES
@@ -296,6 +299,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
     )
     async def get_volume_and_is_muted(
         self, scale=True
@@ -311,6 +315,7 @@ class AsyncKefSpeaker:
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
         wait=wait_exponential(exp_base=1.5),
         before=before_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
     )
     async def _set_volume(self, volume: int) -> None:
         # Write volume level (0..100) on index 3,
