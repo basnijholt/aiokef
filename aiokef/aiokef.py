@@ -10,6 +10,7 @@ import time
 from collections import namedtuple
 from typing import Any, Optional, Tuple, Union
 
+from async_timeout import timeout
 from tenacity import (
     after_log,
     before_log,
@@ -122,15 +123,13 @@ class _AsyncCommunicator:
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
             _LOGGER.debug("Opening connection")
+
             try:
-                async with self._lock:
-                    task = asyncio.open_connection(
+                async with self._lock, timeout(_TIMEOUT):
+                    self._reader, self._writer = await asyncio.open_connection(
                         self.host, self.port, family=socket.AF_INET
                     )
-                    self._reader, self._writer = await asyncio.wait_for(
-                        task, timeout=_TIMEOUT
-                    )
-                _LOGGER.debug("Opening connection successful")
+                    _LOGGER.debug("Opening connection successful")
             except ConnectionRefusedError:
                 _LOGGER.debug("Opening connection failed")
                 await asyncio.sleep(0.5)
@@ -158,9 +157,9 @@ class _AsyncCommunicator:
             await self._writer.drain()
 
             _LOGGER.debug("Reading message")
-            read_task = self._reader.read(100)
             try:
-                data = await asyncio.wait_for(read_task, timeout=_TIMEOUT)
+                async with timeout(_TIMEOUT):
+                    data = await self._reader.read(100)
                 _LOGGER.debug(f"Got reply, {str(data)}")
                 self._last_time_stamp = time.time()
             except asyncio.TimeoutError:

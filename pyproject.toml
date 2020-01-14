@@ -19,6 +19,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 requires = [
+    "async-timeout",
     "tenacity",
 ]
 
