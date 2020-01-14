@@ -82,6 +82,8 @@ def _parse_response(message, reply):
             return FULL_RESPONSE_OK
         else:
             raise Exception("Didn't get OK after SET command.")
+    else:
+        raise Exception(f"Got an unknown response '{reply}'")
 
 
 class _AsyncCommunicator:
