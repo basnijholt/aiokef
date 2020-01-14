@@ -249,7 +249,7 @@ class AsyncKefSpeaker:
         self.standby_time = standby_time
         self.inverse_speaker_mode = inverse_speaker_mode
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
-        self.sync = SyncKefSpeaker(self, self._comm._ioloop)
+        self.sync = SyncKefSpeaker(self)
 
     @retry(
         stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
@@ -425,9 +425,8 @@ class SyncKefSpeaker:
     This has the same methods as `aiokef.AsyncKefSpeaker`, however, it wraps all async
     methods and call them in a blocking way."""
 
-    def __init__(self, async_speaker: AsyncKefSpeaker, ioloop=None):
+    def __init__(self, async_speaker: AsyncKefSpeaker):
         self.async_speaker = async_speaker
-        self.ioloop = ioloop or asyncio.get_event_loop()
 
     def __getattr__(self, attr: str) -> Any:
         method = getattr(self.async_speaker, attr)
@@ -437,7 +436,7 @@ class SyncKefSpeaker:
 
             @functools.wraps(method)
             def wrapped(*args, **kwargs):
-                return self.ioloop.run_until_complete(method(*args, **kwargs))
+                return asyncio.run(method(*args, **kwargs))
 
             return wrapped
         else:
