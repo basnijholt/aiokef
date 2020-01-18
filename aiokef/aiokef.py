@@ -294,8 +294,14 @@ class AsyncKefSpeaker:
             raise ConnectionError(f"Setting source failed, got response {response}.")
 
         for i in range(_MAX_ATTEMPT_TILL_SUCCESS):
-            current_source = await self.get_source()
-            if current_source == source:
+            state = await self.get_state()
+            current_source = state.source
+
+            if (
+                (current_source == source)
+                and ("R/L" if self.inverse_speaker_mode else "L/R")
+                and (state.standby_time == self.standby_time)
+            ):
                 _LOGGER.debug(f"Source is {source}")
                 return
             _LOGGER.debug(
