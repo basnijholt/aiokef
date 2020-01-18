@@ -56,6 +56,10 @@ for source, mapping in INPUT_SOURCES.items():
         INPUT_SOURCES_RESPONSE[LR] = (source, t, "L/R")
         INPUT_SOURCES_RESPONSE[RL] = (source, t, "R/L")
 
+# This seems necessary on both the LSX and LS50W, I don't know why...
+# It's the response when Wifi, "R/L", 60 standby.
+INPUT_SOURCES_RESPONSE[48] = INPUT_SOURCES_RESPONSE[82]
+
 _SET_START = ord("S")
 _SET_MID = 129
 _GET_MID = 128
