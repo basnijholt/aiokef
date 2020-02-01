@@ -16,6 +16,8 @@ Untested: *KEF LSX*
 - Get and set source input
 - Turn speaker on and off
 - Invert L/R to R/L
+- Play and pause (only works with Wifi and Bluetooth)
+- Previous and next track (only works with Wifi and Bluetooth)
 - Set the standby time to infinite, 20 minutes, or 60 minutes
 - Automatically connects and disconnects when speakers goes online/offline
 
