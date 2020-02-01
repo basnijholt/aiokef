@@ -73,14 +73,25 @@ COMMANDS = {
     "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
     "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
     "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
-    "play_pause": bytes(
-        [_SET_START, _CONTROL, _SET_MID, 129]
-    ),  # 128 also works as last bit
+    "play_pause": bytes([_SET_START, _CONTROL, _SET_MID, 129]),  # 128 also works
     "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
     "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
 }
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
+
+_RETRY_KWARGS = dict(
+    wait=wait_exponential(exp_base=1.5),
+    before=before_log(_LOGGER, logging.DEBUG),
+    before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
+    after=after_log(_LOGGER, logging.DEBUG),
+)
+_CMD_RETRY_KWARGS = dict(
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+)
+_SEND_MSG_RETRY_KWARGS = dict(
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
+)
 
 
 def _parse_response(message: bytes, reply: bytes) -> bytes:
@@ -195,13 +206,7 @@ class _AsyncCommunicator:
                     await self._disconnect()
                 await asyncio.sleep(0.5)
 
-    @retry(
-        stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_SEND_MSG_RETRY_KWARGS)
     async def send_message(self, msg: bytes) -> int:
         await self.open_connection()
         raw_reply = await self._send_message(msg)
@@ -264,13 +269,7 @@ class AsyncKefSpeaker:
         self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
         self.sync = SyncKefSpeaker(self)
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def get_state(self) -> State:
         # If the speaker is off, the source increases by 128
         response = await self._comm.send_message(COMMANDS["get_source"])
@@ -285,13 +284,7 @@ class AsyncKefSpeaker:
         state = await self.get_state()
         return state.source
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def set_source(self, source: str, *, state="on") -> None:
         assert source in INPUT_SOURCES
         i = INPUT_SOURCES[source][self.standby_time][self.inverse_speaker_mode] % 128
@@ -324,13 +317,7 @@ class AsyncKefSpeaker:
             f" but the speaker is still {current_source}."
         )
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def get_volume_and_is_muted(
         self, scale=True
     ) -> Tuple[Union[float, int], bool]:
@@ -341,13 +328,7 @@ class AsyncKefSpeaker:
         is_muted = volume >= 128
         return volume / _VOLUME_SCALE if scale else volume, is_muted
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def _set_volume(self, volume: int) -> None:
         # Write volume level (0..100) on index 3,
         # add 128 to current level to mute.
@@ -359,13 +340,7 @@ class AsyncKefSpeaker:
                 f"Setting the volume failed, got response {response}."
             )
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def play_pause(self) -> None:
         response = await self._comm.send_message(COMMANDS["play_pause"])
         if response != _RESPONSE_OK:
@@ -373,13 +348,7 @@ class AsyncKefSpeaker:
                 f"Setting play or pause failed, got response {response}."
             )
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def prev_track(self) -> None:
         response = await self._comm.send_message(COMMANDS["prev_track"])
         if response != _RESPONSE_OK:
@@ -387,13 +356,7 @@ class AsyncKefSpeaker:
                 f"Setting the previous track failed, got response {response}."
             )
 
-    @retry(
-        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
-        wait=wait_exponential(exp_base=1.5),
-        before=before_log(_LOGGER, logging.DEBUG),
-        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-        after=after_log(_LOGGER, logging.DEBUG),
-    )
+    @retry(**_CMD_RETRY_KWARGS)
     async def next_track(self) -> None:
         response = await self._comm.send_message(COMMANDS["next_track"])
         if response != _RESPONSE_OK:
