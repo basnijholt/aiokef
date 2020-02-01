@@ -64,14 +64,20 @@ _SET_START = ord("S")
 _SET_MID = 129
 _GET_MID = 128
 _GET_START = ord("G")
-_SOURCE = ord("0")
 _VOL = ord("%")
+_SOURCE = ord("0")
+_CONTROL = ord("1")
 
 COMMANDS = {
     "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
     "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
     "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
     "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
+    "play_pause": bytes(
+        [_SET_START, _CONTROL, _SET_MID, 129]
+    ),  # 128 also works as last bit
+    "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
+    "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
 }
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
@@ -351,6 +357,48 @@ class AsyncKefSpeaker:
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting the volume failed, got response {response}."
+            )
+
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
+    )
+    async def play_pause(self) -> None:
+        response = await self._comm.send_message(COMMANDS["play_pause"])
+        if response != _RESPONSE_OK:
+            raise ConnectionError(
+                f"Setting play or pause failed, got response {response}."
+            )
+
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
+    )
+    async def prev_track(self) -> None:
+        response = await self._comm.send_message(COMMANDS["prev_track"])
+        if response != _RESPONSE_OK:
+            raise ConnectionError(
+                f"Setting the previous track failed, got response {response}."
+            )
+
+    @retry(
+        stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+        wait=wait_exponential(exp_base=1.5),
+        before=before_log(_LOGGER, logging.DEBUG),
+        before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
+        after=after_log(_LOGGER, logging.DEBUG),
+    )
+    async def next_track(self) -> None:
+        response = await self._comm.send_message(COMMANDS["next_track"])
+        if response != _RESPONSE_OK:
+            raise ConnectionError(
+                f"Setting the next track failed, got response {response}."
             )
 
     async def get_volume(self) -> Optional[float]:
