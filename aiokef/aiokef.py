@@ -115,6 +115,15 @@ HIGH_HZ = arange(50, 120, 5)
 LOW_HZ = arange(40, 250, 5)
 SUB_DB = arange(-10, 10, 1)
 
+OPTION_MAPPING = {
+    "desk_db": DESK_WALL_DB,
+    "wall_db": DESK_WALL_DB,
+    "treble_db": TREBLE_DB,
+    "high_hz": HIGH_HZ,
+    "low_hz": LOW_HZ,
+    "sub_db": SUB_DB,
+}
+
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
 Mode = namedtuple(
@@ -467,88 +476,54 @@ class AsyncKefSpeaker:
             raise ConnectionError(f"Setting the mode failed, got response {response}.")
 
     @retry(**_CMD_RETRY_KWARGS)
+    async def _get_dsp(self, which) -> int:
+        response = await self._comm.send_message(COMMANDS[f"get_{which}"])
+        return OPTION_MAPPING[which][response - 128]
+
     async def get_desk_db(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_desk_db"])
-        return DESK_WALL_DB[response - 128]
+        return await self._get_dsp("desk_db")
 
-    @retry(**_CMD_RETRY_KWARGS)
     async def get_wall_db(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_wall_db"])
-        return DESK_WALL_DB[response - 128]
+        return await self._get_dsp("wall_db")
 
-    @retry(**_CMD_RETRY_KWARGS)
     async def get_treble_db(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_treble_db"])
-        return TREBLE_DB[response - 128]
+        return await self._get_dsp("treble_db")
 
-    @retry(**_CMD_RETRY_KWARGS)
     async def get_high_hz(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_high_hz"])
-        return HIGH_HZ[response - 128]
+        return await self._get_dsp("high_hz")
 
-    @retry(**_CMD_RETRY_KWARGS)
     async def get_low_hz(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_low_hz"])
-        return LOW_HZ[response - 128]
+        return await self._get_dsp("low_hz")
 
-    @retry(**_CMD_RETRY_KWARGS)
     async def get_sub_db(self) -> int:
-        response = await self._comm.send_message(COMMANDS["get_sub_db"])
-        return SUB_DB[response - 128]
+        return await self._get_dsp("sub_db")
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def set_desk_db(self, db) -> int:
-        i = DESK_WALL_DB.index(db)
-        response = await self._comm.send_message(COMMANDS["set_desk_db"](i))
+    async def _set_dsp(self, which, value) -> None:
+        i = OPTION_MAPPING[which].index(value)
+        response = await self._comm.send_message(COMMANDS[f"set_{which}"](i))
         if response != _RESPONSE_OK:
             raise ConnectionError(
-                f"Setting the desk_db failed, got response {response}."
+                f"Setting the {which} failed, got response {response}."
             )
 
-    @retry(**_CMD_RETRY_KWARGS)
-    async def set_wall_db(self, db) -> int:
-        i = DESK_WALL_DB.index(db)
-        response = await self._comm.send_message(COMMANDS["set_wall_db"](i))
-        if response != _RESPONSE_OK:
-            raise ConnectionError(
-                f"Setting the wall_db failed, got response {response}."
-            )
+    async def set_desk_db(self, db) -> None:
+        await self._set_dsp("desk_db", db)
 
-    @retry(**_CMD_RETRY_KWARGS)
-    async def set_treble_db(self, db) -> int:
-        i = TREBLE_DB.index(db)
-        response = await self._comm.send_message(COMMANDS["set_treble_db"](i))
-        if response != _RESPONSE_OK:
-            raise ConnectionError(
-                f"Setting the treble_db failed, got response {response}."
-            )
+    async def set_wall_db(self, db) -> None:
+        await self._set_dsp("wall_db", db)
 
-    @retry(**_CMD_RETRY_KWARGS)
-    async def set_high_hz(self, hz) -> int:
-        i = HIGH_HZ.index(hz)
-        response = await self._comm.send_message(COMMANDS["set_high_hz"](i))
-        if response != _RESPONSE_OK:
-            raise ConnectionError(
-                f"Setting the high_hz failed, got response {response}."
-            )
+    async def set_treble_db(self, db) -> None:
+        await self._set_dsp("treble_db", db)
 
-    @retry(**_CMD_RETRY_KWARGS)
-    async def set_low_hz(self, hz) -> int:
-        i = LOW_HZ.index(hz)
-        response = await self._comm.send_message(COMMANDS["set_low_hz"](i))
-        if response != _RESPONSE_OK:
-            raise ConnectionError(
-                f"Setting the low_hz failed, got response {response}."
-            )
+    async def set_high_hz(self, hz) -> None:
+        await self._set_dsp("high_hz", hz)
 
-    @retry(**_CMD_RETRY_KWARGS)
-    async def set_sub_db(self, db) -> int:
-        i = SUB_DB.index(db)
-        response = await self._comm.send_message(COMMANDS["set_sub_db"](i))
-        if response != _RESPONSE_OK:
-            raise ConnectionError(
-                f"Setting the sub_db failed, got response {response}."
-            )
+    async def set_low_hz(self, hz) -> None:
+        await self._set_dsp("low_hz", hz)
+
+    async def set_sub_db(self, db) -> None:
+        await self._set_dsp("sub_db", db)
 
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
