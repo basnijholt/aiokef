@@ -8,7 +8,7 @@ import logging
 import socket
 import time
 from collections import namedtuple
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from async_timeout import timeout
 from tenacity import (
@@ -88,6 +88,7 @@ COMMANDS = {
     "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
     "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
     "get_mode": bytes([_GET_START, _MODE, _GET_END]),
+    "set_mode": lambda i: bytes([_SET_START, _MODE, _SET_MID, i]),
     "get_desk_db": bytes([_GET_START, _DESK_DB, _GET_END]),
     "get_wall_db": bytes([_GET_START, _WALL_DB, _GET_END]),
     "get_treble_db": bytes([_GET_START, _TREBLE_DB, _GET_END]),
@@ -110,6 +111,18 @@ SUB_DB = arange(-10, 10, 1)
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
+Mode = namedtuple(
+    "Mode",
+    [
+        "desk_mode",
+        "wall_mode",
+        "phase_correction",
+        "high_pass",
+        "sub_polarity",
+        "bass_extension",
+    ],
+)
+
 _RETRY_KWARGS = dict(
     wait=wait_exponential(exp_base=1.5),
     before=before_log(_LOGGER, logging.DEBUG),
@@ -122,6 +135,47 @@ _CMD_RETRY_KWARGS = dict(
 _SEND_MSG_RETRY_KWARGS = dict(
     _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
 )
+
+BASS_EXTENSION_MAPPING = {
+    "00": "Standard",
+    "10": "Less",
+    "01": "Extra",
+    "11": "Unknown",
+}
+BASS_EXTENSION_MAPPING_INV = {v: k for k, v in BASS_EXTENSION_MAPPING.items()}
+
+
+def bits_to_mode(bits: int) -> Mode:
+    mode_bits = f"{bits:08b}"
+
+    desk_mode = mode_bits[7] == "1"
+    wall_mode = mode_bits[6] == "1"
+    phase_correction = mode_bits[5] == "1"
+    high_pass = mode_bits[4] == "1"
+
+    sub_polarity = "-" if mode_bits[1] == "1" else "+"
+    bass_extension_bits = mode_bits[2:4]
+    bass_extension = BASS_EXTENSION_MAPPING[bass_extension_bits]
+    return Mode(
+        desk_mode=desk_mode,
+        wall_mode=wall_mode,
+        phase_correction=phase_correction,
+        high_pass=high_pass,
+        sub_polarity=sub_polarity,
+        bass_extension=bass_extension,
+    )
+
+
+def mode_to_bits(mode: Mode) -> int:
+    true_false = {True: "1", False: "0"}
+    desk_mode = true_false[mode.desk_mode]
+    wall_mode = true_false[mode.wall_mode]
+    phase_correction = true_false[mode.phase_correction]
+    high_pass = true_false[mode.high_pass]
+    sub_polarity = {"-": "1", "+": "0"}[mode.sub_polarity]
+    bass_extension = BASS_EXTENSION_MAPPING_INV[mode.bass_extension]
+    byte = f"1{sub_polarity}{bass_extension}{high_pass}{phase_correction}{wall_mode}{desk_mode}"
+    return int(byte, 2)
 
 
 def _parse_response(message: bytes, reply: bytes) -> bytes:
@@ -395,29 +449,16 @@ class AsyncKefSpeaker:
             )
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def get_mode(self) -> Dict[str, Union[bool, str]]:
+    async def get_mode(self) -> Mode:
         response = await self._comm.send_message(COMMANDS["get_mode"])
+        return bits_to_mode(response)
 
-        mode_bits = "{0:08b}".format(response)
-
-        desk_mode = mode_bits[7] == "1"
-        wall_mode = mode_bits[6] == "1"
-        phase_correction = mode_bits[5] == "1"
-        high_pass = mode_bits[4] == "1"
-
-        sub_polarity = "-" if mode_bits[1] == "1" else "+"
-        sub_ext_bits = mode_bits[2:4]
-        sub_ext = {"00": "Standard", "10": "Less", "01": "Extra", "11": "Unknown"}[
-            sub_ext_bits
-        ]
-        return {
-            "desk_mode": desk_mode,
-            "wall_mode": wall_mode,
-            "phase_correction": phase_correction,
-            "high_pass": high_pass,
-            "sub_polarity": sub_polarity,
-            "sub_ext": sub_ext,
-        }
+    @retry(**_CMD_RETRY_KWARGS)
+    async def set_mode(self, mode: Mode) -> None:
+        i = mode_to_bits(mode)
+        response = await self._comm.send_message(COMMANDS["set_mode"](i))
+        if response != _RESPONSE_OK:
+            raise ConnectionError(f"Setting the mode failed, got response {response}.")
 
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
