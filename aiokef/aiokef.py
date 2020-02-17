@@ -62,21 +62,51 @@ INPUT_SOURCES_RESPONSE[48] = INPUT_SOURCES_RESPONSE[82]
 
 _SET_START = ord("S")
 _SET_MID = 129
-_GET_MID = 128
+_GET_END = 128
 _GET_START = ord("G")
+
+# Control
 _VOL = ord("%")
 _SOURCE = ord("0")
 _CONTROL = ord("1")
 
+# DSP
+_MODE = 39
+_DESK_DB = 40
+_WALL_DB = 41
+_TREBLE_DB = 42
+_HIGH_HZ = 43
+_LOW_HZ = 44
+_SUB_DB = 45
+
 COMMANDS = {
     "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
     "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
-    "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
-    "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
+    "get_volume": bytes([_GET_START, _VOL, _GET_END]),
+    "get_source": bytes([_GET_START, _SOURCE, _GET_END]),
     "play_pause": bytes([_SET_START, _CONTROL, _SET_MID, 129]),  # 128 also works
     "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
     "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
+    "get_mode": bytes([_GET_START, _MODE, _GET_END]),
+    "get_desk_db": bytes([_GET_START, _DESK_DB, _GET_END]),
+    "get_wall_db": bytes([_GET_START, _WALL_DB, _GET_END]),
+    "get_treble_db": bytes([_GET_START, _TREBLE_DB, _GET_END]),
+    "get_high_hz": bytes([_GET_START, _HIGH_HZ, _GET_END]),
+    "get_low_hz": bytes([_GET_START, _LOW_HZ, _GET_END]),
+    "get_sub_db": bytes([_GET_START, _SUB_DB, _GET_END]),
 }
+
+
+def arange(start, end, step):
+    return [x * step for x in range(int(start / step), int(end / step) + 1)]
+
+
+# DSP options
+DESK_WALL_DB = arange(-6, 0, 0.5)
+TREBLE_DB = arange(-2, 2, 0.5)
+HIGH_HZ = arange(50, 120, 5)
+LOW_HZ = arange(40, 250, 5)
+SUB_DB = arange(-10, 10, 1)
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
 
