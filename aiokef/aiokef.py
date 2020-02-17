@@ -8,7 +8,7 @@ import logging
 import socket
 import time
 from collections import namedtuple
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from async_timeout import timeout
 from tenacity import (
@@ -393,6 +393,31 @@ class AsyncKefSpeaker:
             raise ConnectionError(
                 f"Setting the next track failed, got response {response}."
             )
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_mode(self) -> Dict[str, Union[bool, str]]:
+        response = await self._comm.send_message(COMMANDS["get_mode"])
+
+        mode_bits = "{0:08b}".format(response)
+
+        desk_mode = mode_bits[7] == "1"
+        wall_mode = mode_bits[6] == "1"
+        phase_correction = mode_bits[5] == "1"
+        high_pass = mode_bits[4] == "1"
+
+        sub_polarity = "-" if mode_bits[1] == "1" else "+"
+        sub_ext_bits = mode_bits[2:4]
+        sub_ext = {"00": "Standard", "10": "Less", "01": "Extra", "11": "Unknown"}[
+            sub_ext_bits
+        ]
+        return {
+            "desk_mode": desk_mode,
+            "wall_mode": wall_mode,
+            "phase_correction": phase_correction,
+            "high_pass": high_pass,
+            "sub_polarity": sub_polarity,
+            "sub_ext": sub_ext,
+        }
 
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
