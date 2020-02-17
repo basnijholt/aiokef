@@ -460,6 +460,36 @@ class AsyncKefSpeaker:
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting the mode failed, got response {response}.")
 
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_desk_db(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_desk_db"])
+        return DESK_WALL_DB[response - 128]
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_wall_db(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_wall_db"])
+        return DESK_WALL_DB[response - 128]
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_treble_db(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_treble_db"])
+        return TREBLE_DB[response - 128]
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_high_hz(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_high_hz"])
+        return HIGH_HZ[response - 128]
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_low_hz(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_low_hz"])
+        return LOW_HZ[response - 128]
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_sub_db(self) -> int:
+        response = await self._comm.send_message(COMMANDS["get_sub_db"])
+        return SUB_DB[response - 128]
+
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
         volume, is_muted = await self.get_volume_and_is_muted(scale=True)
