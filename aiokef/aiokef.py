@@ -145,10 +145,10 @@ _RETRY_KWARGS = dict(
     after=after_log(_LOGGER, logging.DEBUG),
 )
 _CMD_RETRY_KWARGS = dict(
-    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS)
 )
 _SEND_MSG_RETRY_KWARGS = dict(
-    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES)
 )
 
 BASS_EXTENSION_MAPPING = {
@@ -471,7 +471,8 @@ class AsyncKefSpeaker:
     @retry(**_CMD_RETRY_KWARGS)
     async def set_mode(self, mode: Mode) -> None:
         i = mode_to_bits(mode)
-        response = await self._comm.send_message(COMMANDS["set_mode"](i))
+        cmd = COMMANDS["set_mode"](i)  # type: ignore
+        response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting the mode failed, got response {response}.")
 
@@ -501,7 +502,8 @@ class AsyncKefSpeaker:
     @retry(**_CMD_RETRY_KWARGS)
     async def _set_dsp(self, which, value) -> None:
         i = DSP_OPTION_MAPPING[which].index(value)
-        response = await self._comm.send_message(COMMANDS[f"set_{which}"](i))
+        cmd = COMMANDS[f"set_{which}"](i)  # type: ignore
+        response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting the {which} failed, got response {response}."
