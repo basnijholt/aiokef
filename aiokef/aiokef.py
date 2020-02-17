@@ -109,19 +109,19 @@ def arange(start, end, step):
 
 
 # DSP options
-DESK_WALL_DB = arange(-6, 0, 0.5)
-TREBLE_DB = arange(-2, 2, 0.5)
-HIGH_HZ = arange(50, 120, 5)
-LOW_HZ = arange(40, 250, 5)
-SUB_DB = arange(-10, 10, 1)
+_DESK_WALL_DB = arange(-6, 0, 0.5)
+_TREBLE_DB = arange(-2, 2, 0.5)
+_HIGH_HZ = arange(50, 120, 5)
+_LOW_HZ = arange(40, 250, 5)
+_SUB_DB = arange(-10, 10, 1)
 
-OPTION_MAPPING = {
-    "desk_db": DESK_WALL_DB,
-    "wall_db": DESK_WALL_DB,
-    "treble_db": TREBLE_DB,
-    "high_hz": HIGH_HZ,
-    "low_hz": LOW_HZ,
-    "sub_db": SUB_DB,
+DSP_OPTION_MAPPING = {
+    "desk_db": _DESK_WALL_DB,
+    "wall_db": _DESK_WALL_DB,
+    "treble_db": _TREBLE_DB,
+    "high_hz": _HIGH_HZ,
+    "low_hz": _LOW_HZ,
+    "sub_db": _SUB_DB,
 }
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
@@ -478,7 +478,7 @@ class AsyncKefSpeaker:
     @retry(**_CMD_RETRY_KWARGS)
     async def _get_dsp(self, which) -> int:
         response = await self._comm.send_message(COMMANDS[f"get_{which}"])
-        return OPTION_MAPPING[which][response - 128]
+        return DSP_OPTION_MAPPING[which][response - 128]
 
     async def get_desk_db(self) -> int:
         return await self._get_dsp("desk_db")
@@ -500,7 +500,7 @@ class AsyncKefSpeaker:
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _set_dsp(self, which, value) -> None:
-        i = OPTION_MAPPING[which].index(value)
+        i = DSP_OPTION_MAPPING[which].index(value)
         response = await self._comm.send_message(COMMANDS[f"set_{which}"](i))
         if response != _RESPONSE_OK:
             raise ConnectionError(
