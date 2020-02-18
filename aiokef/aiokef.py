@@ -93,7 +93,8 @@ COMMANDS = {
     "set_volume": _set(_VOL),
     "set_source": _set(_SOURCE),
     "get_source": _get(_SOURCE),
-    "play_pause": _set(_CONTROL)(129),  # 128 also works
+    "set_play_pause": _set(_CONTROL)(129),  # 128 also works
+    "get_play_pause": _get(_CONTROL),
     "next_track": _set(_CONTROL)(130),
     "prev_track": _set(_CONTROL)(131),
     "get_mode": _get(_MODE),
@@ -449,11 +450,23 @@ class AsyncKefSpeaker:
             )
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def play_pause(self) -> None:
-        response = await self._comm.send_message(COMMANDS["play_pause"])
+    async def set_play_pause(self) -> None:
+        response = await self._comm.send_message(COMMANDS["set_play_pause"])
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting play or pause failed, got response {response}."
+            )
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_play_pause(self) -> str:
+        response = await self._comm.send_message(COMMANDS["get_play_pause"])
+        if response == 128:
+            return "Paused"
+        elif response == 129:
+            return "Playing"
+        else:
+            raise ConnectionError(
+                f"Getting play or pause failed, got response {response}."
             )
 
     @retry(**_CMD_RETRY_KWARGS)
