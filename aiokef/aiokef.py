@@ -109,19 +109,19 @@ def arange(start, end, step):
 
 
 # DSP options
-_DESK_WALL_DB = arange(-6, 0, 0.5)
-_TREBLE_DB = arange(-2, 2, 0.5)
-_HIGH_HZ = arange(50, 120, 5)
-_LOW_HZ = arange(40, 250, 5)
-_SUB_DB = arange(-10, 10, 1)
+_DESK_WALL_DB_OPTIONS = arange(-6, 0, 0.5)
+_TREBLE_DB_OPTIONS = arange(-2, 2, 0.5)
+_HIGH_HZ_OPTIONS = arange(50, 120, 5)
+_LOW_HZ_OPTIONS = arange(40, 250, 5)
+_SUB_DB_OPTIONS = arange(-10, 10, 1)
 
 DSP_OPTION_MAPPING = {
-    "desk_db": _DESK_WALL_DB,
-    "wall_db": _DESK_WALL_DB,
-    "treble_db": _TREBLE_DB,
-    "high_hz": _HIGH_HZ,
-    "low_hz": _LOW_HZ,
-    "sub_db": _SUB_DB,
+    "desk_db": _DESK_WALL_DB_OPTIONS,
+    "wall_db": _DESK_WALL_DB_OPTIONS,
+    "treble_db": _TREBLE_DB_OPTIONS,
+    "high_hz": _HIGH_HZ_OPTIONS,
+    "low_hz": _LOW_HZ_OPTIONS,
+    "sub_db": _SUB_DB_OPTIONS,
 }
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
@@ -198,7 +198,7 @@ def _parse_response(message: bytes, reply: bytes) -> bytes:
     them up and choose the right one."""
     responses = [b"R" + i for i in reply.split(b"R") if i]
 
-    if message[0] == ord("G"):  # b"0" or b"%"
+    if message[0] == ord("G"):
         which = message[1]
         try:
             return next(r for r in responses if r[1] == which)
@@ -478,7 +478,11 @@ class AsyncKefSpeaker:
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _get_dsp(self, which) -> int:
-        response = await self._comm.send_message(COMMANDS[f"get_{which}"])
+        cmd = COMMANDS[f"get_{which}"]
+        response = await self._comm.send_message(cmd)
+        if response == 255:
+            # Happens for example when getting "high_hz" and "High pass mode" if off.
+            return "Unknown"
         return DSP_OPTION_MAPPING[which][response - 128]
 
     async def get_desk_db(self) -> int:
@@ -501,7 +505,7 @@ class AsyncKefSpeaker:
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _set_dsp(self, which, value) -> None:
-        i = DSP_OPTION_MAPPING[which].index(value)
+        i = DSP_OPTION_MAPPING[which].index(value) + 128
         cmd = COMMANDS[f"set_{which}"](i)  # type: ignore
         response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
