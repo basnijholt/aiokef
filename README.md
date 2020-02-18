@@ -20,6 +20,7 @@ Untested: *KEF LSX*
 - Previous and next track (only works with Wifi and Bluetooth)
 - Set the standby time to infinite, 20 minutes, or 60 minutes
 - Automatically connects and disconnects when speakers goes online/offline
+- Control **all** DSP settings!
 
 ## Use in Home Assistant
 See [basnijholt/media_player.kef](https://github.com/basnijholt/media_player.kef/).
