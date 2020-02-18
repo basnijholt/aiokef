@@ -491,12 +491,33 @@ class AsyncKefSpeaker:
         return bits_to_mode(response)
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def set_mode(self, mode: Mode) -> None:
+    async def _set_mode(self, mode: Mode) -> None:
         i = mode_to_bits(mode)
         cmd = COMMANDS["set_mode"](i)  # type: ignore
         response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
             raise ConnectionError(f"Setting the mode failed, got response {response}.")
+
+    async def set_mode(
+        self,
+        desk_mode=None,
+        wall_mode=None,
+        phase_correction=None,
+        high_pass=None,
+        sub_polarity=None,
+        bass_extension=None,
+    ) -> None:
+        current_mode = await self.get_mode()
+        new_mode = Mode(
+            desk_mode=desk_mode or current_mode.desk_mode,
+            wall_mode=wall_mode or current_mode.wall_mode,
+            phase_correction=phase_correction or current_mode.phase_correction,
+            high_pass=high_pass or current_mode.high_pass,
+            sub_polarity=sub_polarity or current_mode.sub_polarity,
+            bass_extension=bass_extension or current_mode.bass_extension,
+        )
+        await self._set_mode(new_mode)
+        # XXX: implement a check like in set_source
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _get_dsp(self, which) -> Union[int, str]:
