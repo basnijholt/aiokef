@@ -8,7 +8,7 @@ import logging
 import socket
 import time
 from collections import namedtuple
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 from async_timeout import timeout
 from tenacity import (
@@ -79,28 +79,37 @@ _HIGH_HZ = 43
 _LOW_HZ = 44
 _SUB_DB = 45
 
+
+def _get(which: int) -> bytes:
+    return bytes([_GET_START, which, _GET_END])
+
+
+def _set(which: int) -> Callable[[int], bytes]:
+    return lambda i: bytes([_SET_START, which, _SET_MID, i])
+
+
 COMMANDS = {
-    "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
-    "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
-    "get_volume": bytes([_GET_START, _VOL, _GET_END]),
-    "get_source": bytes([_GET_START, _SOURCE, _GET_END]),
-    "play_pause": bytes([_SET_START, _CONTROL, _SET_MID, 129]),  # 128 also works
-    "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
-    "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
-    "get_mode": bytes([_GET_START, _MODE, _GET_END]),
-    "set_mode": lambda i: bytes([_SET_START, _MODE, _SET_MID, i]),
-    "get_desk_db": bytes([_GET_START, _DESK_DB, _GET_END]),
-    "get_wall_db": bytes([_GET_START, _WALL_DB, _GET_END]),
-    "get_treble_db": bytes([_GET_START, _TREBLE_DB, _GET_END]),
-    "get_high_hz": bytes([_GET_START, _HIGH_HZ, _GET_END]),
-    "get_low_hz": bytes([_GET_START, _LOW_HZ, _GET_END]),
-    "get_sub_db": bytes([_GET_START, _SUB_DB, _GET_END]),
-    "set_desk_db": lambda i: bytes([_SET_START, _DESK_DB, _SET_MID, i]),
-    "set_wall_db": lambda i: bytes([_SET_START, _WALL_DB, _SET_MID, i]),
-    "set_treble_db": lambda i: bytes([_SET_START, _TREBLE_DB, _SET_MID, i]),
-    "set_high_hz": lambda i: bytes([_SET_START, _HIGH_HZ, _SET_MID, i]),
-    "set_low_hz": lambda i: bytes([_SET_START, _LOW_HZ, _SET_MID, i]),
-    "set_sub_db": lambda i: bytes([_SET_START, _SUB_DB, _SET_MID, i]),
+    "get_volume": _get(_VOL),
+    "set_volume": _set(_VOL),
+    "set_source": _set(_SOURCE),
+    "get_source": _get(_SOURCE),
+    "play_pause": _set(_CONTROL)(129),  # 128 also works
+    "next_track": _set(_CONTROL)(130),
+    "prev_track": _set(_CONTROL)(131),
+    "get_mode": _get(_MODE),
+    "set_mode": _set(_MODE),
+    "get_desk_db": _get(_DESK_DB),
+    "set_desk_db": _set(_DESK_DB),
+    "get_wall_db": _get(_WALL_DB),
+    "set_wall_db": _set(_WALL_DB),
+    "get_treble_db": _get(_TREBLE_DB),
+    "set_treble_db": _set(_TREBLE_DB),
+    "get_high_hz": _get(_HIGH_HZ),
+    "set_high_hz": _set(_HIGH_HZ),
+    "get_low_hz": _get(_LOW_HZ),
+    "set_low_hz": _set(_LOW_HZ),
+    "get_sub_db": _get(_SUB_DB),
+    "set_sub_db": _set(_SUB_DB),
 }
 
 
@@ -477,7 +486,7 @@ class AsyncKefSpeaker:
             raise ConnectionError(f"Setting the mode failed, got response {response}.")
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def _get_dsp(self, which) -> int:
+    async def _get_dsp(self, which) -> Union[int, str]:
         cmd = COMMANDS[f"get_{which}"]
         response = await self._comm.send_message(cmd)
         if response == 255:
@@ -505,7 +514,7 @@ class AsyncKefSpeaker:
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _set_dsp(self, which, value) -> None:
-        i = DSP_OPTION_MAPPING[which].index(value) + 128
+        i = DSP_OPTION_MAPPING[which].index(value) + 128  # "+ 128" seems to do nothing
         cmd = COMMANDS[f"set_{which}"](i)  # type: ignore
         response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
