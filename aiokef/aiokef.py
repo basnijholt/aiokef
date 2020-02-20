@@ -8,7 +8,7 @@ import logging
 import socket
 import time
 from collections import namedtuple
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 from async_timeout import timeout
 from tenacity import (
@@ -62,23 +62,91 @@ INPUT_SOURCES_RESPONSE[48] = INPUT_SOURCES_RESPONSE[82]
 
 _SET_START = ord("S")
 _SET_MID = 129
-_GET_MID = 128
+_GET_END = 128
 _GET_START = ord("G")
+
+# Control
 _VOL = ord("%")
 _SOURCE = ord("0")
 _CONTROL = ord("1")
 
+# DSP
+_MODE = 39
+_DESK_DB = 40
+_WALL_DB = 41
+_TREBLE_DB = 42
+_HIGH_HZ = 43
+_LOW_HZ = 44
+_SUB_DB = 45
+
+
+def _get(which: int) -> bytes:
+    return bytes([_GET_START, which, _GET_END])
+
+
+def _set(which: int) -> Callable[[int], bytes]:
+    return lambda i: bytes([_SET_START, which, _SET_MID, i])
+
+
 COMMANDS = {
-    "set_volume": lambda volume: bytes([_SET_START, _VOL, _SET_MID, int(volume)]),
-    "set_source": lambda i: bytes([_SET_START, _SOURCE, _SET_MID, i]),
-    "get_volume": bytes([_GET_START, _VOL, _GET_MID]),
-    "get_source": bytes([_GET_START, _SOURCE, _GET_MID]),
-    "play_pause": bytes([_SET_START, _CONTROL, _SET_MID, 129]),  # 128 also works
-    "next_track": bytes([_SET_START, _CONTROL, _SET_MID, 130]),
-    "prev_track": bytes([_SET_START, _CONTROL, _SET_MID, 131]),
+    "get_volume": _get(_VOL),
+    "set_volume": _set(_VOL),
+    "set_source": _set(_SOURCE),
+    "get_source": _get(_SOURCE),
+    "set_play_pause": _set(_CONTROL)(129),  # 128 also works
+    "get_play_pause": _get(_CONTROL),
+    "next_track": _set(_CONTROL)(130),
+    "prev_track": _set(_CONTROL)(131),
+    "get_mode": _get(_MODE),
+    "set_mode": _set(_MODE),
+    "get_desk_db": _get(_DESK_DB),
+    "set_desk_db": _set(_DESK_DB),
+    "get_wall_db": _get(_WALL_DB),
+    "set_wall_db": _set(_WALL_DB),
+    "get_treble_db": _get(_TREBLE_DB),
+    "set_treble_db": _set(_TREBLE_DB),
+    "get_high_hz": _get(_HIGH_HZ),
+    "set_high_hz": _set(_HIGH_HZ),
+    "get_low_hz": _get(_LOW_HZ),
+    "set_low_hz": _set(_LOW_HZ),
+    "get_sub_db": _get(_SUB_DB),
+    "set_sub_db": _set(_SUB_DB),
+}
+
+
+def arange(start, end, step):
+    return [x * step for x in range(int(start / step), int(end / step) + 1)]
+
+
+# DSP options
+_DESK_WALL_DB_OPTIONS = arange(-6, 0, 0.5)
+_TREBLE_DB_OPTIONS = arange(-2, 2, 0.5)
+_HIGH_HZ_OPTIONS = arange(50, 120, 5)
+_LOW_HZ_OPTIONS = arange(40, 250, 5)
+_SUB_DB_OPTIONS = arange(-10, 10, 1)
+
+DSP_OPTION_MAPPING = {
+    "desk_db": _DESK_WALL_DB_OPTIONS,
+    "wall_db": _DESK_WALL_DB_OPTIONS,
+    "treble_db": _TREBLE_DB_OPTIONS,
+    "high_hz": _HIGH_HZ_OPTIONS,
+    "low_hz": _LOW_HZ_OPTIONS,
+    "sub_db": _SUB_DB_OPTIONS,
 }
 
 State = namedtuple("State", ["source", "is_on", "standby_time", "orientation"])
+
+Mode = namedtuple(
+    "Mode",
+    [
+        "desk_mode",
+        "wall_mode",
+        "phase_correction",
+        "high_pass",
+        "sub_polarity",
+        "bass_extension",
+    ],
+)
 
 _RETRY_KWARGS = dict(
     wait=wait_exponential(exp_base=1.5),
@@ -87,11 +155,52 @@ _RETRY_KWARGS = dict(
     after=after_log(_LOGGER, logging.DEBUG),
 )
 _CMD_RETRY_KWARGS = dict(
-    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS),
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS)
 )
 _SEND_MSG_RETRY_KWARGS = dict(
-    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES),
+    _RETRY_KWARGS, stop=stop_after_attempt(_MAX_SEND_MESSAGE_TRIES)
 )
+
+BASS_EXTENSION_MAPPING = {
+    "00": "Standard",
+    "10": "Less",
+    "01": "Extra",
+    "11": "Unknown",
+}
+BASS_EXTENSION_MAPPING_INV = {v: k for k, v in BASS_EXTENSION_MAPPING.items()}
+
+
+def bits_to_mode(bits: int) -> Mode:
+    mode_bits = f"{bits:08b}"
+
+    desk_mode = mode_bits[7] == "1"
+    wall_mode = mode_bits[6] == "1"
+    phase_correction = mode_bits[5] == "1"
+    high_pass = mode_bits[4] == "1"
+
+    sub_polarity = "-" if mode_bits[1] == "1" else "+"
+    bass_extension_bits = mode_bits[2:4]
+    bass_extension = BASS_EXTENSION_MAPPING[bass_extension_bits]
+    return Mode(
+        desk_mode=desk_mode,
+        wall_mode=wall_mode,
+        phase_correction=phase_correction,
+        high_pass=high_pass,
+        sub_polarity=sub_polarity,
+        bass_extension=bass_extension,
+    )
+
+
+def mode_to_bits(mode: Mode) -> int:
+    true_false = {True: "1", False: "0"}
+    desk_mode = true_false[mode.desk_mode]
+    wall_mode = true_false[mode.wall_mode]
+    phase_correction = true_false[mode.phase_correction]
+    high_pass = true_false[mode.high_pass]
+    sub_polarity = {"-": "1", "+": "0"}[mode.sub_polarity]
+    bass_extension = BASS_EXTENSION_MAPPING_INV[mode.bass_extension]
+    byte = f"1{sub_polarity}{bass_extension}{high_pass}{phase_correction}{wall_mode}{desk_mode}"
+    return int(byte, 2)
 
 
 def _parse_response(message: bytes, reply: bytes) -> bytes:
@@ -99,7 +208,7 @@ def _parse_response(message: bytes, reply: bytes) -> bytes:
     them up and choose the right one."""
     responses = [b"R" + i for i in reply.split(b"R") if i]
 
-    if message[0] == ord("G"):  # b"0" or b"%"
+    if message[0] == ord("G"):
         which = message[1]
         try:
             return next(r for r in responses if r[1] == which)
@@ -341,11 +450,23 @@ class AsyncKefSpeaker:
             )
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def play_pause(self) -> None:
-        response = await self._comm.send_message(COMMANDS["play_pause"])
+    async def set_play_pause(self) -> None:
+        response = await self._comm.send_message(COMMANDS["set_play_pause"])
         if response != _RESPONSE_OK:
             raise ConnectionError(
                 f"Setting play or pause failed, got response {response}."
+            )
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_play_pause(self) -> str:
+        response = await self._comm.send_message(COMMANDS["get_play_pause"])
+        if response == 128:
+            return "Paused"
+        elif response == 129:
+            return "Playing"
+        else:
+            raise ConnectionError(
+                f"Getting play or pause failed, got response {response}."
             )
 
     @retry(**_CMD_RETRY_KWARGS)
@@ -363,6 +484,95 @@ class AsyncKefSpeaker:
             raise ConnectionError(
                 f"Setting the next track failed, got response {response}."
             )
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def get_mode(self) -> Mode:
+        response = await self._comm.send_message(COMMANDS["get_mode"])
+        return bits_to_mode(response)
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def _set_mode(self, mode: Mode) -> None:
+        i = mode_to_bits(mode)
+        cmd = COMMANDS["set_mode"](i)  # type: ignore
+        response = await self._comm.send_message(cmd)
+        if response != _RESPONSE_OK:
+            raise ConnectionError(f"Setting the mode failed, got response {response}.")
+
+    async def set_mode(
+        self,
+        desk_mode=None,
+        wall_mode=None,
+        phase_correction=None,
+        high_pass=None,
+        sub_polarity=None,
+        bass_extension=None,
+    ) -> None:
+        current_mode = await self.get_mode()
+        new_mode = Mode(
+            desk_mode=desk_mode or current_mode.desk_mode,
+            wall_mode=wall_mode or current_mode.wall_mode,
+            phase_correction=phase_correction or current_mode.phase_correction,
+            high_pass=high_pass or current_mode.high_pass,
+            sub_polarity=sub_polarity or current_mode.sub_polarity,
+            bass_extension=bass_extension or current_mode.bass_extension,
+        )
+        await self._set_mode(new_mode)
+        # XXX: implement a check like in set_source
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def _get_dsp(self, which) -> Union[int, str]:
+        cmd = COMMANDS[f"get_{which}"]
+        response = await self._comm.send_message(cmd)
+        if response == 255:
+            # Happens for example when getting "high_hz" and "High pass mode" if off.
+            return "Unknown"
+        return DSP_OPTION_MAPPING[which][response - 128]
+
+    async def get_desk_db(self) -> int:
+        return await self._get_dsp("desk_db")
+
+    async def get_wall_db(self) -> int:
+        return await self._get_dsp("wall_db")
+
+    async def get_treble_db(self) -> int:
+        return await self._get_dsp("treble_db")
+
+    async def get_high_hz(self) -> int:
+        return await self._get_dsp("high_hz")
+
+    async def get_low_hz(self) -> int:
+        return await self._get_dsp("low_hz")
+
+    async def get_sub_db(self) -> int:
+        return await self._get_dsp("sub_db")
+
+    @retry(**_CMD_RETRY_KWARGS)
+    async def _set_dsp(self, which, value) -> None:
+        i = DSP_OPTION_MAPPING[which].index(value) + 128  # "+ 128" seems to do nothing
+        cmd = COMMANDS[f"set_{which}"](i)  # type: ignore
+        response = await self._comm.send_message(cmd)
+        if response != _RESPONSE_OK:
+            raise ConnectionError(
+                f"Setting the {which} failed, got response {response}."
+            )
+
+    async def set_desk_db(self, db) -> None:
+        await self._set_dsp("desk_db", db)
+
+    async def set_wall_db(self, db) -> None:
+        await self._set_dsp("wall_db", db)
+
+    async def set_treble_db(self, db) -> None:
+        await self._set_dsp("treble_db", db)
+
+    async def set_high_hz(self, hz) -> None:
+        await self._set_dsp("high_hz", hz)
+
+    async def set_low_hz(self, hz) -> None:
+        await self._set_dsp("low_hz", hz)
+
+    async def set_sub_db(self, db) -> None:
+        await self._set_dsp("sub_db", db)
 
     async def get_volume(self) -> Optional[float]:
         """Volume level of the media player (0..1). None if muted."""
