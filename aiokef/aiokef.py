@@ -486,8 +486,11 @@ class AsyncKefSpeaker:
             )
 
     @retry(**_CMD_RETRY_KWARGS)
-    async def get_mode(self) -> Mode:
+    async def get_mode(self) -> Union[Mode, str]:
         response = await self._comm.send_message(COMMANDS["get_mode"])
+        if response == 255:
+            # Happens if device is off
+            return "Unknown"
         return bits_to_mode(response)
 
     @retry(**_CMD_RETRY_KWARGS)
@@ -507,14 +510,31 @@ class AsyncKefSpeaker:
         sub_polarity=None,
         bass_extension=None,
     ) -> None:
+        """Set the mode of the speaker.
+
+        Leave option None to keep the setting the same."""
         current_mode = await self.get_mode()
+
+        if desk_mode is None:
+            desk_mode = current_mode.desk_mode
+        if wall_mode is None:
+            wall_mode = current_mode.wall_mode
+        if phase_correction is None:
+            phase_correction = current_mode.phase_correction
+        if high_pass is None:
+            high_pass = current_mode.high_pass
+        if sub_polarity is None:
+            sub_polarity = current_mode.sub_polarity
+        if bass_extension is None:
+            bass_extension = current_mode.bass_extension
+
         new_mode = Mode(
-            desk_mode=desk_mode or current_mode.desk_mode,
-            wall_mode=wall_mode or current_mode.wall_mode,
-            phase_correction=phase_correction or current_mode.phase_correction,
-            high_pass=high_pass or current_mode.high_pass,
-            sub_polarity=sub_polarity or current_mode.sub_polarity,
-            bass_extension=bass_extension or current_mode.bass_extension,
+            desk_mode=desk_mode,
+            wall_mode=wall_mode,
+            phase_correction=phase_correction,
+            high_pass=high_pass,
+            sub_polarity=sub_polarity,
+            bass_extension=bass_extension,
         )
         await self._set_mode(new_mode)
         # XXX: implement a check like in set_source
