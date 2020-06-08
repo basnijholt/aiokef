@@ -1,7 +1,6 @@
 """A module for asynchronously interacting with KEF wireless speakers."""
 
 import asyncio
-import contextlib
 import functools
 import inspect
 import logging
@@ -313,13 +312,9 @@ class _AsyncCommunicator:
             _LOGGER.debug("Cancelling the _disconnect_task")
             self._disconnect_task.cancel()
             self._disconnect_task = None
-        self._disconnect_task = self._ioloop.create_task(self._disconnect_in(dt))
-
-    async def _disconnect_in(self, dt) -> None:
-        """Disconnect socket after dt."""
-        with contextlib.suppress(Exception):
-            await asyncio.sleep(dt)
-            await self._disconnect()
+        self._disconnect_task = self._ioloop.call_later(
+            dt, asyncio.create_task, self._disconnect(dt)
+        )
 
     @retry(**_SEND_MSG_RETRY_KWARGS)
     async def send_message(self, msg: bytes) -> int:
