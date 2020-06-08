@@ -239,7 +239,7 @@ class _AsyncCommunicator:
         self._last_time_stamp = 0.0
         self._is_online = False
         self._ioloop = ioloop or asyncio.get_event_loop()
-        self._disconnect_task = self._ioloop.create_task(self._disconnect_if_passive())
+        self._disconnect_task = None
         self._lock = asyncio.Lock()
 
     @property
@@ -273,6 +273,7 @@ class _AsyncCommunicator:
             else:
                 self._is_online = True
                 self._last_time_stamp = time.time()
+                self._schedule_disconnect()
                 return
             retries += 1
         self._is_online = False
@@ -292,6 +293,7 @@ class _AsyncCommunicator:
                     data = await self._reader.read(100)
                 _LOGGER.debug(f"Got reply, {str(data)}")
                 self._last_time_stamp = time.time()
+                self._schedule_disconnect()
             except asyncio.TimeoutError:
                 _LOGGER.error("Timeout in waiting for reply")
             finally:
@@ -306,14 +308,18 @@ class _AsyncCommunicator:
                 await self._writer.wait_closed()
                 self._reader, self._writer = (None, None)
 
-    async def _disconnect_if_passive(self) -> None:
-        """Disconnect socket after _KEEP_ALIVE seconds of not using it."""
-        while True:
-            with contextlib.suppress(Exception):
-                time_is_up = time.time() - self._last_time_stamp > _KEEP_ALIVE
-                if time_is_up:
-                    await self._disconnect()
-                await asyncio.sleep(0.5)
+    def _schedule_disconnect(self, dt=_KEEP_ALIVE):
+        if self._disconnect_task is not None:
+            _LOGGER.debug("Cancelling the _disconnect_task")
+            self._disconnect_task.cancel()
+            self._disconnect_task = None
+        self._disconnect_task = self._ioloop.create_task(self._disconnect_in(dt))
+
+    async def _disconnect_in(self, dt) -> None:
+        """Disconnect socket after dt."""
+        with contextlib.suppress(Exception):
+            await asyncio.sleep(dt)
+            await self._disconnect()
 
     @retry(**_SEND_MSG_RETRY_KWARGS)
     async def send_message(self, msg: bytes) -> int:
