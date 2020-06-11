@@ -313,7 +313,7 @@ class _AsyncCommunicator:
             self._disconnect_task.cancel()
             self._disconnect_task = None
         self._disconnect_task = self._ioloop.call_later(
-            dt, asyncio.create_task, self._disconnect(dt)
+            dt, asyncio.create_task, self._disconnect()
         )
 
     @retry(**_SEND_MSG_RETRY_KWARGS)
