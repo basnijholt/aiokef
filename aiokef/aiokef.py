@@ -247,20 +247,20 @@ class _AsyncCommunicator:
 
     async def open_connection(self) -> None:
         if self.is_connected:
-            _LOGGER.debug("Connection is still alive")
+            _LOGGER.debug("%s: Connection is still alive", self.host)
             return
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
-            _LOGGER.debug("Opening connection")
+            _LOGGER.debug("%s: Opening connection", self.host)
 
             try:
                 async with self._lock, timeout(_TIMEOUT):
                     self._reader, self._writer = await asyncio.open_connection(
                         self.host, self.port, family=socket.AF_INET
                     )
-                    _LOGGER.debug("Opening connection successful")
+                    _LOGGER.debug("%s: Opening connection successful", self.host)
             except ConnectionRefusedError:
-                _LOGGER.debug("Opening connection failed")
+                _LOGGER.debug("%s: Opening connection failed", self.host)
                 await asyncio.sleep(0.5)
             except BlockingIOError:  # Connection incomming
                 # XXX: I have never seen this.
@@ -282,19 +282,19 @@ class _AsyncCommunicator:
         async with self._lock:
             assert self._writer is not None
             assert self._reader is not None
-            _LOGGER.debug(f"Writing message: {str(message)}")
+            _LOGGER.debug("%s: Writing message: %s", self.host, str(message))
             self._writer.write(message)
             await self._writer.drain()
 
-            _LOGGER.debug("Reading message")
+            _LOGGER.debug("%s: Reading message", self.host)
             try:
                 async with timeout(_TIMEOUT):
                     data = await self._reader.read(100)
-                _LOGGER.debug(f"Got reply, {str(data)}")
+                _LOGGER.debug("%s: Got reply, %s", self.host, str(data))
                 self._last_time_stamp = time.time()
                 self._schedule_disconnect()
             except asyncio.TimeoutError:
-                _LOGGER.error("Timeout in waiting for reply")
+                _LOGGER.error("%s: Timeout in waiting for reply", self.host)
             finally:
                 return data
 
@@ -302,14 +302,14 @@ class _AsyncCommunicator:
         if self.is_connected:
             async with self._lock:
                 assert self._writer is not None
-                _LOGGER.debug("Disconnecting")
+                _LOGGER.debug("%s: Disconnecting", self.host)
                 self._writer.close()
                 await self._writer.wait_closed()
                 self._reader, self._writer = (None, None)
 
     def _schedule_disconnect(self, dt=_KEEP_ALIVE):
         if self._disconnect_task is not None:
-            _LOGGER.debug("Cancelling the _disconnect_task")
+            _LOGGER.debug("%s: Cancelling the _disconnect_task", self.host)
             self._disconnect_task.cancel()
             self._disconnect_task = None
         self._disconnect_task = self._ioloop.call_later(
@@ -321,7 +321,7 @@ class _AsyncCommunicator:
         await self.open_connection()
         raw_reply = await self._send_message(msg)
         reply = _parse_response(msg, raw_reply)[-2]
-        _LOGGER.debug(f"Received: {reply}")
+        _LOGGER.debug("%s: Received: %s", self.host, reply)
         return reply
 
 
@@ -415,11 +415,15 @@ class AsyncKefSpeaker:
                 and ("R/L" if self.inverse_speaker_mode else "L/R")
                 and (state.standby_time == self.standby_time)
             ):
-                _LOGGER.debug(f"Source is {source}")
+                _LOGGER.debug("%s: Source is %s", self.host, source)
                 return
             _LOGGER.debug(
-                f"Try #{i}: Source is {current_source} but {source} is selected"
-            )
+                "%s: Try #%s: Source is %s but %s is selected",
+                self.host,
+                i,
+                current_source,
+                source,
+            ), self.host
             await asyncio.sleep(0.5)
 
         raise TimeoutError(
@@ -655,9 +659,11 @@ class AsyncKefSpeaker:
 
         for i in range(20):  # it can take 20s to boot
             if await self.is_on():
-                _LOGGER.debug("Speaker is on")
+                _LOGGER.debug("%s: Speaker is on", self.host)
                 return
-            _LOGGER.debug(f"Try #{i}: Turned on the speaker, but it is still off")
+            _LOGGER.debug(
+                "%s: Try #%s: Turned on the speaker, but it is still off", self.host, i
+            )
             await asyncio.sleep(1)
 
     async def turn_off(self) -> None:
@@ -668,9 +674,11 @@ class AsyncKefSpeaker:
 
         for i in range(20):  # it can take 20s to boot
             if not await self.is_on():
-                _LOGGER.debug("Speaker is off")
+                _LOGGER.debug("%s: Speaker is off", self.host)
                 return
-            _LOGGER.debug(f"Try #{i}: Turned off the speaker, but it is still on")
+            _LOGGER.debug(
+                "%s: Try #%s: Turned off the speaker, but it is still on", self.host, i
+            )
             await asyncio.sleep(1)
 
 
