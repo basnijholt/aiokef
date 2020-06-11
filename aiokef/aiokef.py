@@ -300,21 +300,23 @@ class _AsyncCommunicator:
 
     async def _disconnect(self) -> None:
         if self.is_connected:
-            async with self._lock:
+            async with self._lock, timeout(_TIMEOUT):
                 assert self._writer is not None
                 _LOGGER.debug("%s: Disconnecting", self.host)
                 self._writer.close()
                 await self._writer.wait_closed()
                 self._reader, self._writer = (None, None)
 
+    async def _disconnect_in(self, dt):
+        await asyncio.sleep(dt)
+        await asyncio.shield(self._disconnect())  # ℹ️ shield it from being cancelled
+
     def _schedule_disconnect(self, dt=_KEEP_ALIVE):
         if self._disconnect_task is not None:
             _LOGGER.debug("%s: Cancelling the _disconnect_task", self.host)
             self._disconnect_task.cancel()
             self._disconnect_task = None
-        self._disconnect_task = self._loop.call_later(
-            dt, asyncio.create_task, self._disconnect()
-        )
+        self._disconnect_task = asyncio.create_task(self._disconnect_in(dt))
 
     @retry(**_SEND_MSG_RETRY_KWARGS)
     async def send_message(self, msg: bytes) -> int:
