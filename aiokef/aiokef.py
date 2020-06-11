@@ -229,7 +229,7 @@ class _AsyncCommunicator:
         host: str,
         port: int,
         *,
-        ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
+        loop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
         self.host = host
         self.port = port
@@ -237,7 +237,7 @@ class _AsyncCommunicator:
         self._writer: Optional[asyncio.StreamWriter] = None
         self._last_time_stamp = 0.0
         self._is_online = False
-        self._ioloop = ioloop or asyncio.get_event_loop()
+        self._loop = loop or asyncio.get_event_loop()
         self._disconnect_task = None
         self._lock = asyncio.Lock()
 
@@ -312,7 +312,7 @@ class _AsyncCommunicator:
             _LOGGER.debug("%s: Cancelling the _disconnect_task", self.host)
             self._disconnect_task.cancel()
             self._disconnect_task = None
-        self._disconnect_task = self._ioloop.call_later(
+        self._disconnect_task = self._loop.call_later(
             dt, asyncio.create_task, self._disconnect()
         )
 
@@ -340,7 +340,7 @@ class AsyncKefSpeaker:
     maximum_volume : float, optional
         The maximum allow volume, between 0 and 1. Use this to avoid
         accidentally setting very high volumes, by default 1.0.
-    ioloop : `asyncio.BaseEventLoop`, optional
+    loop : `asyncio.BaseEventLoop`, optional
         The eventloop to use.
     standby_time: int, optional
         Put the speaker in standby when inactive for ``standby_time``
@@ -364,7 +364,7 @@ class AsyncKefSpeaker:
         standby_time: Optional[int] = None,
         inverse_speaker_mode: bool = False,
         *,
-        ioloop: Optional[asyncio.events.AbstractEventLoop] = None,
+        loop: Optional[asyncio.events.AbstractEventLoop] = None,
     ):
         if standby_time not in STANDBY_OPTIONS:
             raise ValueError(
@@ -376,7 +376,7 @@ class AsyncKefSpeaker:
         self.maximum_volume = maximum_volume
         self.standby_time = standby_time
         self.inverse_speaker_mode = inverse_speaker_mode
-        self._comm = _AsyncCommunicator(host, port, ioloop=ioloop)
+        self._comm = _AsyncCommunicator(host, port, loop=loop)
         self.sync = SyncKefSpeaker(self)
 
     @retry(**_CMD_RETRY_KWARGS)
