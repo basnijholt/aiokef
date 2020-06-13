@@ -27,6 +27,7 @@ bumpversion release  # bump version from .devX to release version
 flit publish         # publish to PyPI
 bumpversion patch    # add .devX tag
 git push --tags      # push tagged release to upstream
+git push             # push commits
 ```
 
 ## Start work on the next release
