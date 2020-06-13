@@ -300,7 +300,7 @@ class _AsyncCommunicator:
 
     async def _disconnect(self) -> None:
         if self.is_connected:
-            async with self._lock, timeout(_TIMEOUT):
+            async with self._lock:
                 assert self._writer is not None
                 _LOGGER.debug("%s: Disconnecting", self.host)
                 self._writer.close()
