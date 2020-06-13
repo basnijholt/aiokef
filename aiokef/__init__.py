@@ -1,6 +1,6 @@
 """A module for asynchronously interacting with KEF wireless speakers."""
 
-__version__ = "0.2.12"
+__version__ = "0.2.13.dev0"
 
 from aiokef.aiokef import AsyncKefSpeaker, SyncKefSpeaker
 
