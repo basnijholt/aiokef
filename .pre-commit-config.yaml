@@ -23,7 +23,7 @@ repos:
   rev: 19.10b0
 - hooks:
   - args:
-    - --py36-plus
+    - --py37-plus
     id: pyupgrade
   repo: https://github.com/asottile/pyupgrade
   rev: v2.6.1
