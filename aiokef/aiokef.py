@@ -7,6 +7,7 @@ import logging
 import socket
 import time
 from collections import namedtuple
+from contextlib import AsyncExitStack
 from typing import Any, Callable, Optional, Tuple, Union
 
 from async_timeout import timeout
@@ -247,8 +248,14 @@ class _AsyncCommunicator:
 
     async def open_connection(self) -> None:
         if self.is_connected:
-            _LOGGER.debug("%s: Connection is still alive", self.host)
-            return
+            if self._writer.is_closing():
+                _LOGGER.debug(
+                    "%s: Connection closing but did not disconnect", self.host
+                )
+                await self._disconnect()
+            else:
+                _LOGGER.debug("%s: Connection is still alive", self.host)
+                return
         retries = 0
         while retries < _MAX_CONNECTION_RETRIES:
             _LOGGER.debug("%s: Opening connection", self.host)
@@ -283,8 +290,17 @@ class _AsyncCommunicator:
             assert self._writer is not None
             assert self._reader is not None
             _LOGGER.debug("%s: Writing message: %s", self.host, str(message))
-            self._writer.write(message)
-            await self._writer.drain()
+            try:
+                # I am getting `[asyncio] socket.send() raised exception.`
+                # in one of the two lines below.
+                # After adding this, I've never seen the error again, but also
+                # never seen the log message below...
+                self._writer.write(message)
+                await self._writer.drain()
+            except Exception as e:
+                _LOGGER.debug("%s: Got an exception in writing: %s", self.host, e)
+                await self._disconnect(use_lock=False)
+                raise
 
             _LOGGER.debug("%s: Reading message", self.host)
             try:
@@ -298,13 +314,16 @@ class _AsyncCommunicator:
             finally:
                 return data
 
-    async def _disconnect(self) -> None:
+    async def _disconnect(self, use_lock=True) -> None:
+        _LOGGER.debug("%s: _disconnect called", self.host)
+        maybe_lock = self._lock if use_lock else AsyncExitStack()
         if self.is_connected:
-            async with self._lock:
+            async with maybe_lock:
                 assert self._writer is not None
-                _LOGGER.debug("%s: Disconnecting", self.host)
+                _LOGGER.debug("%s: Going to disconnect now", self.host)
                 self._writer.close()
                 await self._writer.wait_closed()
+                _LOGGER.debug("%s: Disconnected", self.host)
                 self._reader, self._writer = (None, None)
 
     async def _disconnect_in(self, dt):
