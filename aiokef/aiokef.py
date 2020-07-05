@@ -297,8 +297,8 @@ class _AsyncCommunicator:
                 # never seen the log message below...
                 self._writer.write(message)
                 await self._writer.drain()
-            except Exception as e:
-                _LOGGER.debug("%s: Got an exception in writing: %s", self.host, e)
+            except ConnectionResetError:
+                _LOGGER.exception("%s: Got an exception in writing", self.host)
                 await self._disconnect(use_lock=False)
                 raise
 
@@ -316,25 +316,34 @@ class _AsyncCommunicator:
 
     async def _disconnect(self, use_lock=True) -> None:
         _LOGGER.debug("%s: _disconnect called", self.host)
+        self._maybe_cancel_disconnect_task()
         maybe_lock = self._lock if use_lock else AsyncExitStack()
         if self.is_connected:
             async with maybe_lock:
                 assert self._writer is not None
                 _LOGGER.debug("%s: Going to disconnect now", self.host)
-                self._writer.close()
-                await self._writer.wait_closed()
-                _LOGGER.debug("%s: Disconnected", self.host)
+                try:
+                    self._writer.close()
+                    await self._writer.wait_closed()
+                    _LOGGER.debug("%s: Disconnected", self.host)
+                except ConnectionResetError:
+                    # Raised ConnectionResetError: [Errno 104] Connection reset by peer
+                    # which means that the speaker closed the connection.
+                    _LOGGER.exception("%s: Disconnecting raised", self.host)
                 self._reader, self._writer = (None, None)
 
     async def _disconnect_in(self, dt):
         await asyncio.sleep(dt)
         await asyncio.shield(self._disconnect())  # ℹ️ shield it from being cancelled
 
-    def _schedule_disconnect(self, dt=_KEEP_ALIVE):
+    def _maybe_cancel_disconnect_task(self):
         if self._disconnect_task is not None:
             _LOGGER.debug("%s: Cancelling the _disconnect_task", self.host)
             self._disconnect_task.cancel()
             self._disconnect_task = None
+
+    def _schedule_disconnect(self, dt=_KEEP_ALIVE):
+        self._maybe_cancel_disconnect_task()
         self._disconnect_task = asyncio.create_task(self._disconnect_in(dt))
 
     @retry(**_SEND_MSG_RETRY_KWARGS)
