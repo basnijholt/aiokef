@@ -56,11 +56,8 @@ setup(
         test=[
             "pytest",
             "pytest-cov",
-            "pytest-flake8",
             "pytest-mypy",
-            "pytest-black",
             "tox",
-            "flake8-per-file-ignores",
         ],
         docs=[
             "sphinx",
