@@ -251,7 +251,7 @@ class _AsyncCommunicator:
 
     async def open_connection(self) -> None:
         if self.is_connected:
-            if self._writer.is_closing():
+            if self._writer.is_closing():  # type: ignore
                 _LOGGER.debug(
                     "%s: Connection closing but did not disconnect", self.host
                 )
@@ -322,7 +322,7 @@ class _AsyncCommunicator:
         self._maybe_cancel_disconnect_task()
         maybe_lock = self._lock if use_lock else AsyncExitStack()
         if self.is_connected:
-            async with maybe_lock:
+            async with maybe_lock:  # type: ignore
                 assert self._writer is not None
                 _LOGGER.debug("%s: Going to disconnect now", self.host)
                 try:
@@ -456,7 +456,7 @@ class AsyncKefSpeaker:
                 i,
                 current_source,
                 source,
-            ), self.host
+            )
             await asyncio.sleep(0.5)
 
         raise TimeoutError(
