@@ -48,7 +48,10 @@ setup(
     license="MIT",
     url="https://github.com/basnijholt/aiokef",
     download_url="https://pypi.python.org/pypi/aiokef",
-    install_requires=["async-timeout", "tenacity"],
+    install_requires=[
+        "async-timeout",
+        "tenacity",
+    ],
     extras_require=dict(
         test=[
             "pytest",
