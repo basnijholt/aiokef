@@ -62,7 +62,7 @@ setup(
         docs=[
             "sphinx",
             "sphinx-rtd-theme",
-            "m2r",  # markdown support
+            "m2r2",  # markdown support
             "sphinxcontrib.apidoc",  # run sphinx-apidoc when building docs
         ],
         dev=["pre-commit"],
