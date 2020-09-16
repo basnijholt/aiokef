@@ -39,7 +39,7 @@ extensions = [
     "sphinx.ext.viewcode",  # View source code from documentation pages
     "sphinx.ext.napoleon",  # numpy-style docstrings
     "sphinxcontrib.apidoc",  # Run sphinx-apidoc when building
-    "m2r",
+    "m2r2",
 ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
