@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _RESPONSE_OK = 17  # the full response is [82, 17, 255]
 _TIMEOUT = 2.0  # in seconds
-_KEEP_ALIVE = 1.0  # in seconds
+_KEEP_ALIVE = 100.0  # in seconds
 _VOLUME_SCALE = 100.0
 _MAX_ATTEMPT_TILL_SUCCESS = 10
 _MAX_SEND_MESSAGE_TRIES = 5
@@ -251,7 +251,7 @@ class _AsyncCommunicator:
 
     async def open_connection(self) -> None:
         if self.is_connected:
-            if self._writer.is_closing():
+            if self._writer.is_closing():  # type: ignore
                 _LOGGER.debug(
                     "%s: Connection closing but did not disconnect", self.host
                 )
@@ -272,7 +272,7 @@ class _AsyncCommunicator:
             except ConnectionRefusedError:
                 _LOGGER.debug("%s: Opening connection failed", self.host)
                 await asyncio.sleep(0.5)
-            except BlockingIOError:  # Connection incomming
+            except BlockingIOError:  # Connection incoming
                 # XXX: I have never seen this.
                 retries = 0
                 await asyncio.sleep(1)
@@ -322,7 +322,7 @@ class _AsyncCommunicator:
         self._maybe_cancel_disconnect_task()
         maybe_lock = self._lock if use_lock else AsyncExitStack()
         if self.is_connected:
-            async with maybe_lock:
+            async with maybe_lock:  # type: ignore
                 assert self._writer is not None
                 _LOGGER.debug("%s: Going to disconnect now", self.host)
                 try:
@@ -456,7 +456,7 @@ class AsyncKefSpeaker:
                 i,
                 current_source,
                 source,
-            ), self.host
+            )
             await asyncio.sleep(0.5)
 
         raise TimeoutError(

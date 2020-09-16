@@ -1,43 +1,33 @@
 repos:
-- hooks:
-  - exclude: .bumpversion.cfg
-    id: trailing-whitespace
-  - exclude: .bumpversion.cfg
-    id: end-of-file-fixer
-  - id: check-docstring-first
-  - id: check-yaml
-  - id: debug-statements
-  - id: check-ast
-  repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v3.1.0
-- hooks:
-  - args:
-    - --config=tox.ini
-    id: flake8
-  repo: https://gitlab.com/pycqa/flake8
-  rev: 3.8.3
-- hooks:
-  - id: black
-    language_version: python3.7
-  repo: https://github.com/ambv/black
-  rev: 19.10b0
-- hooks:
-  - args:
-    - --py37-plus
-    id: pyupgrade
-  repo: https://github.com/asottile/pyupgrade
-  rev: v2.6.1
-- hooks:
-  - args:
-    - --multi-line=3
-    - --trailing-comma
-    - --force-grid-wrap=0
-    - --use-parentheses
-    - --line-width=88
-    id: isort
-  repo: https://github.com/pre-commit/mirrors-isort
-  rev: v4.3.21
-- hooks:
-  - id: seed-isort-config
-  repo: https://github.com/asottile/seed-isort-config
-  rev: v2.2.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-docstring-first
+    - id: check-yaml
+    - id: debug-statements
+    - id: check-ast
+  - repo: https://github.com/ambv/black
+    rev: 20.8b1
+    hooks:
+    - id: black
+  - repo: https://github.com/asottile/blacken-docs
+    rev: v1.8.0
+    hooks:
+    - id: blacken-docs
+      additional_dependencies: [black==20.8b1]
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.7.2
+    hooks:
+    - id: pyupgrade
+      args: ['--py37-plus']
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.5.2
+    hooks:
+    - id: isort
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.3
+    hooks:
+    - id: flake8
+      args: ['--config=tox.ini']
