@@ -603,7 +603,9 @@ class AsyncKefSpeaker:
 
     @retry(**_CMD_RETRY_KWARGS)
     async def _set_dsp(self, which, value) -> None:
-        i = DSP_OPTION_MAPPING[which].index(value) + 128  # "+ 128" seems to do nothing
+        options = DSP_OPTION_MAPPING[which]
+        as_type = type(options[0])
+        i = options.index(as_type(value)) + 128  # "+ 128" seems to do nothing
         cmd = COMMANDS[f"set_{which}"](i)  # type: ignore
         response = await self._comm.send_message(cmd)
         if response != _RESPONSE_OK:
