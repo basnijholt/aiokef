@@ -38,7 +38,7 @@ setup(
     version=version,
     cmdclass=cmdclass,
     python_requires=">=3.7",
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests']),
     include_package_data=True,
     maintainer="Bas Nijholt",
     maintainer_email="bas@nijho.lt",
