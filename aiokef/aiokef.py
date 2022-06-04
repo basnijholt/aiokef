@@ -503,6 +503,8 @@ class AsyncKefSpeaker:
             return "Paused"
         elif response == 129:
             return "Playing"
+        elif response == 132:
+            return "Stopped"
         else:
             raise ConnectionError(
                 f"Getting play or pause failed, got response {response}."
