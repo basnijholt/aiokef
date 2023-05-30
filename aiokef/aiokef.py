@@ -290,7 +290,7 @@ class _AsyncCommunicator:
         self._is_online = False
         raise ConnectionRefusedError("Connection tries exceeded.")
 
-    async def _send_message(self, message: bytes) -> bytes:
+    async def _send_message(self, message: bytes) -> bytes:  # type: ignore[return]
         async with self._lock:
             assert self._writer is not None
             assert self._reader is not None
@@ -674,7 +674,7 @@ class AsyncKefSpeaker:
         volume, _ = await self.get_volume_and_is_muted(scale=False)
         await self._set_volume(int(volume) % 128)
 
-    async def is_online(self) -> bool:
+    async def is_online(self) -> bool:  # type: ignore[return]
         try:
             await self._comm.open_connection()
         except ConnectionRefusedError:
