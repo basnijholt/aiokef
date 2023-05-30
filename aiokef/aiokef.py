@@ -148,12 +148,12 @@ Mode = namedtuple(
     ],
 )
 
-_RETRY_KWARGS = dict(
-    wait=wait_exponential(exp_base=1.5),
-    before=before_log(_LOGGER, logging.DEBUG),
-    before_sleep=before_sleep_log(_LOGGER, logging.DEBUG),
-    after=after_log(_LOGGER, logging.DEBUG),
-)
+_RETRY_KWARGS = {
+    "wait": wait_exponential(exp_base=1.5),
+    "before": before_log(_LOGGER, logging.DEBUG),
+    "before_sleep": before_sleep_log(_LOGGER, logging.DEBUG),
+    "after": after_log(_LOGGER, logging.DEBUG),
+}
 _CMD_RETRY_KWARGS = dict(
     _RETRY_KWARGS, stop=stop_after_attempt(_MAX_ATTEMPT_TILL_SUCCESS)
 )
@@ -216,7 +216,8 @@ def _parse_response(message: bytes, reply: bytes) -> bytes:
         try:
             return next(r for r in responses if r[1] == which)
         except StopIteration:
-            raise Exception("The query type didn't match with the response.")
+            msg = "The query type didn't match with the response."
+            raise Exception(msg) from None
     elif message[0] == ord("S"):
         FULL_RESPONSE_OK = bytes([82, 17, 255])
         if FULL_RESPONSE_OK in responses:
@@ -315,7 +316,7 @@ class _AsyncCommunicator:
                 self._schedule_disconnect()
             except asyncio.TimeoutError:
                 _LOGGER.error("%s: Timeout in waiting for reply", self.host)
-            finally:
+            else:
                 return data
 
     async def _disconnect(self, use_lock=True) -> None:
@@ -678,7 +679,7 @@ class AsyncKefSpeaker:
             await self._comm.open_connection()
         except ConnectionRefusedError:
             assert not self._comm._is_online
-        finally:
+        else:
             return self._comm._is_online
 
     async def is_on(self) -> bool:
