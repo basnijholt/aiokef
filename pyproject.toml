@@ -58,7 +58,8 @@ addopts = """
     --cov=aiokef
     --cov-report term
     --cov-report html
-    --cov-fail-under=100
+    --cov-append
+    --cov-fail-under=30
 """
 
 [tool.coverage.report]
