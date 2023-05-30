@@ -38,7 +38,7 @@ Check out this [Home Assistant discussion thread](https://community.home-assista
 MIT License
 
 ## 👥 Contributions
-- Bas Nijholt 🚀
+- Bas Nijholt  ([@basnijholt](https://github.com/basnijholt)) 🚀
 - Robin Grönberg ([@Gronis](https://github.com/Gronis/pykef))
 - Bastian Beggel ([@bastianbeggel](https://github.com/bastianbeggel/hasskef))
 - chimpy ([@chimpy](https://github.com/chimpy))
