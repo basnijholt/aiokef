@@ -22,7 +22,6 @@ from tenacity import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_RESPONSE_OK = 17  # the full response is [82, 17, 255]
 _TIMEOUT = 2.0  # in seconds
 _KEEP_ALIVE = 1.0  # in seconds
 _VOLUME_SCALE = 100.0
@@ -64,6 +63,12 @@ _SET_START = ord("S")
 _SET_MID = 129
 _GET_END = 128
 _GET_START = ord("G")
+
+_RESPONSE_START = ord("R")
+
+_RESPONSE_OK = 17  # the full response is [82, 17, 255] (See _FULL_RESPONSE_OK)
+_RESPONSE_OK_END = 255  # we don't know the intended meaning of this byte
+_FULL_RESPONSE_OK = bytes([_RESPONSE_START, _RESPONSE_OK, _RESPONSE_OK_END])
 
 # Control
 _VOL = ord("%")
@@ -206,26 +211,57 @@ def mode_to_bits(mode: Mode) -> int:
     return int(byte, 2)
 
 
-def _parse_response(message: bytes, reply: bytes) -> bytes:
+def _parse_response(message: bytes, raw_responses: bytes) -> bytes:
     """Sometimes we receive many messages, so we need to split
     them up and choose the right one."""
-    responses = [b"R" + i for i in reply.split(b"R") if i]
 
-    if message[0] == ord("G"):
-        which = message[1]
-        try:
-            return next(r for r in responses if r[1] == which)
-        except StopIteration:
-            msg = "The query type didn't match with the response."
-            raise Exception(msg) from None
-    elif message[0] == ord("S"):
-        FULL_RESPONSE_OK = bytes([82, 17, 255])
-        if FULL_RESPONSE_OK in responses:
-            return FULL_RESPONSE_OK
+    want_OK = message[0] == _SET_START
+
+    want_GET_response = message[0] == _GET_START
+    if want_GET_response:
+        message_which = message[1]
+
+    rest_data = raw_responses
+    while len(rest_data) > 0:
+        if rest_data[0] != _RESPONSE_START:
+            raise Exception(f"Got an unknown response type '{rest_data!r}'")
+
+        response_which = rest_data[1]  # The topic of this response.
+        if response_which == _RESPONSE_OK:
+            if rest_data[2] != _RESPONSE_OK_END:
+                raise Exception(f"Unexpected value in response '{rest_data!r}'")
+
+            response_size = len(_FULL_RESPONSE_OK)
+
+            if want_OK:
+                return _FULL_RESPONSE_OK
         else:
-            raise Exception("Didn't get OK after SET command.")
+            # For all remaining cases, we currently assume that the
+            # response is a fixed-format 5-byte answer to a simple
+            # _GET_START command. For future enhancements, we may have
+            # to do more filtering on `response_which` to determine the
+            # length & format.
+            response_size = 5
+
+            if len(rest_data) < response_size:
+                raise Exception(f"Response shorter than expected '{rest_data!r}'")
+            response = rest_data[0:response_size]
+
+            if want_GET_response:
+                if response_which == message_which:
+                    return response
+
+        # The amount of data is never very large, naive slice copy is
+        # performant enough.
+        rest_data = rest_data[response_size:]
+
+    if want_OK:
+        raise Exception("Didn't get OK after command.")
+    elif want_GET_response:
+        msg = "The query type didn't match with the response."
+        raise Exception(msg) from None
     else:
-        raise Exception(f"Got an unknown response '{reply!r}'")
+        raise Exception("Parsing did not know what job to do.")
 
 
 class _AsyncCommunicator:
