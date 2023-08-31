@@ -211,7 +211,7 @@ def mode_to_bits(mode: Mode) -> int:
     return int(byte, 2)
 
 
-def _parse_response(message: bytes, raw_responses: bytes) -> bytes:
+def _parse_responses(message: bytes, raw_responses: bytes) -> bytes:
     """Sometimes we receive many messages, so we need to split
     them up and choose the right one.
 
@@ -355,11 +355,11 @@ class _AsyncCommunicator:
             try:
                 async with timeout(_TIMEOUT):
                     data = await self._reader.read(100)
-                _LOGGER.debug("%s: Got reply, %s", self.host, str(data))
+                _LOGGER.debug("%s: Got response, %s", self.host, str(data))
                 self._last_time_stamp = time.time()
                 self._schedule_disconnect()
             except asyncio.TimeoutError:
-                _LOGGER.error("%s: Timeout in waiting for reply", self.host)
+                _LOGGER.error("%s: Timeout in waiting for response", self.host)
             else:
                 return data
 
@@ -398,10 +398,10 @@ class _AsyncCommunicator:
     @retry(**_SEND_MSG_RETRY_KWARGS)
     async def send_message(self, msg: bytes) -> int:
         await self.open_connection()
-        raw_reply = await self._send_message(msg)
-        reply = _parse_response(msg, raw_reply)[-2]
-        _LOGGER.debug("%s: Received: %s", self.host, reply)
-        return reply
+        raw_responses = await self._send_message(msg)
+        response_value = _parse_responses(msg, raw_responses)[-2]
+        _LOGGER.debug("%s: Received: %s", self.host, response_value)
+        return response_value
 
 
 class AsyncKefSpeaker:
