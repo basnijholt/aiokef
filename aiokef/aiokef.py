@@ -213,7 +213,15 @@ def mode_to_bits(mode: Mode) -> int:
 
 def _parse_response(message: bytes, raw_responses: bytes) -> bytes:
     """Sometimes we receive many messages, so we need to split
-    them up and choose the right one."""
+    them up and choose the right one.
+
+    Currently, this function simply discards any messages that it's not
+    looking for.
+
+    Currently, this function assumes that the caller has finished its
+    TCP read exactly on a message boundary. That's not a safe
+    assumption; it happens to (mostly?) work in practice due to the
+    small amounts of data in this protocol."""
 
     want_OK = message[0] == _SET_START
 
