@@ -1,4 +1,5 @@
 """A module for asynchronously interacting with KEF wireless speakers."""
+
 import pkg_resources
 
 from aiokef.aiokef import AsyncKefSpeaker, SyncKefSpeaker
