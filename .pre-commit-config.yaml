@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -9,21 +9,21 @@ repos:
       - id: debug-statements
       - id: check-ast
   - repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 24.10.0
     hooks:
       - id: black
   - repo: https://github.com/asottile/blacken-docs
-    rev: 1.15.0
+    rev: 1.19.0
     hooks:
       - id: blacken-docs
         additional_dependencies: [black==23.3.0]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.0.284"
+    rev: "v0.7.0"
     hooks:
       - id: ruff
         args: ["--fix"]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.5.0"
+    rev: "v1.12.1"
     hooks:
       - id: mypy
         additional_dependencies:
